@@ -58,6 +58,7 @@ Following TypeBox's `value` module structure:
 | Operation | Status | Description |
 |-----------|--------|-------------|
 | `check` | ✅ | Validate value against schema |
+| `clone` | ✅ | Deep clone values |
 | `fake` | TODO | Generate random test data from schema |
 | `create` | TODO | Generate default value from schema |
 | `clone` | TODO | Deep clone values |
