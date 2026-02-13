@@ -1,3 +1,4 @@
+pub mod cast;
 pub mod check;
 pub mod clone;
 pub mod create;
@@ -11,6 +12,7 @@ use crate::schema::{LiteralValue, Schema};
 use indexmap::IndexMap;
 use std::borrow::Cow;
 
+pub use cast::cast;
 pub use check::{check, check_with_errors};
 pub use clone::clone;
 pub use create::create;
