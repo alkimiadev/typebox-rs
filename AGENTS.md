@@ -39,18 +39,14 @@ This project follows the alkimiadev pattern for separating code from development
 
 ## Current Status
 
-**Milestone M1:** Schema enum + builder + Rust/TypeScript codegen (needs refactoring)
+**Milestone M1:** ✅ Complete - Schema enum with inline constraints, custom Value enum
 
-Current implementation uses Property-based design. Planned refactoring:
-- Add inline constraints to Schema variants (min/max, format, pattern)
-- Change `Object.properties` to `IndexMap<String, Schema>` + `required: Vec<String>`
-- Create custom `Value` enum (not serde_json::Value) to support bytes/typed arrays
+**Milestone M2:** In Progress - Value operations
 
 **See:** `/workspace/@alkimiadev/plans/typebox-rs/decisions.md` for architecture decisions.
 
 **Remaining milestones** (see plans):
-- M1 (refactor): Schema + Value refactoring
-- M2: Value operations (fake, create, clone, equal, cast, delta, patch, clean)
+- M2: Value operations (check, clone, equal, create, fake, cast, delta, patch, clean)
 - M3: SafeTensor reader with schema metadata
 - M4: FFI layer for cross-language clients
 - M5: Ladybug integration
@@ -61,7 +57,7 @@ Following TypeBox's `value` module structure:
 
 | Operation | Status | Description |
 |-----------|--------|-------------|
-| `check` | ✅ (needs migrate) | Validate value against schema |
+| `check` | ✅ | Validate value against schema |
 | `fake` | TODO | Generate random test data from schema |
 | `create` | TODO | Generate default value from schema |
 | `clone` | TODO | Deep clone values |

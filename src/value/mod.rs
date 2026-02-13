@@ -1,7 +1,11 @@
+pub mod check;
+
 use crate::error::ParseError;
 use crate::schema::{LiteralValue, Schema};
 use indexmap::IndexMap;
 use std::borrow::Cow;
+
+pub use check::{check, check_with_errors};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
