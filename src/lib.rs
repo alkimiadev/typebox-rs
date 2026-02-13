@@ -20,7 +20,7 @@ pub use layout::Layout;
 pub use schema::{LiteralValue, Schema, StringFormat};
 pub use validate::validate;
 pub use value::Value;
-pub use value::{check, check_with_errors, clone};
+pub use value::{check, check_with_errors, clone, equal};
 
 #[cfg(feature = "codegen")]
 pub use codegen::{RustGenerator, SchemaRegistry, TypeScriptGenerator};

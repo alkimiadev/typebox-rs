@@ -1,5 +1,6 @@
 pub mod check;
 pub mod clone;
+pub mod equal;
 
 use crate::error::ParseError;
 use crate::schema::{LiteralValue, Schema};
@@ -8,6 +9,7 @@ use std::borrow::Cow;
 
 pub use check::{check, check_with_errors};
 pub use clone::clone;
+pub use equal::equal;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
