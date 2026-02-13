@@ -150,7 +150,6 @@ pub fn diff_summary(edits: &[Edit]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use indexmap::IndexMap;
 
     #[test]
     fn test_delta_no_change() {

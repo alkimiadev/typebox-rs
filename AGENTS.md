@@ -65,43 +65,31 @@ Following TypeBox's `value` module structure:
 | `delta` | ✅ | Compute diff (insert/update/delete) |
 | `patch` | ✅ | Apply delta edits |
 | `clean` | ✅ | Remove extraneous properties |
-| `create` | TODO | Generate default value from schema |
-| `clone` | TODO | Deep clone values |
-| `equal` | TODO | Structural equality comparison |
-| `cast` | TODO | Coerce value to match schema |
-| `delta` | TODO | Compute diff (insert/update/delete) |
-| `patch` | TODO | Apply delta edits |
-| `clean` | TODO | Remove extraneous properties |
 
 Reference: `/workspace/typebox-schema-faker/` for `fake` implementation pattern.
 
-## Module Structure (Target)
-
-Following TypeBox's pattern:
+## Module Structure
 
 ```
 src/
-├── type/              # Schema type definitions
-│   ├── mod.rs
-│   ├── schema.rs      # Core Schema trait/enum
-│   ├── primitives.rs  # Null, Bool, numeric types
-│   ├── array.rs
-│   ├── object.rs
-│   ├── union.rs
-│   ├── record.rs      # Map types
-│   └── registry.rs    # Custom type registry
-├── value/             # Value operations
-│   ├── mod.rs
-│   ├── check.rs       # ✅ Validation
+├── lib.rs             # Crate entry point, re-exports
+├── schema.rs          # Core Schema enum
+├── builder.rs         # SchemaBuilder API
+├── validate.rs        # Validation logic
+├── layout.rs          # Binary layout calculation
+├── error.rs           # Error types
+├── value/             # Value type and operations
+│   ├── mod.rs         # Value enum
+│   ├── check.rs       # Validation
+│   ├── clone.rs       # Deep clone
+│   ├── equal.rs       # Equality comparison
 │   ├── create.rs      # Default generation
-│   ├── clone.rs
-│   ├── equal.rs
-│   ├── cast.rs
-│   ├── delta.rs
-│   └── patch.rs
-├── codegen/           # Code generation
-├── layout.rs          # Binary layout
-└── ffi/               # C-compatible FFI
+│   ├── fake.rs        # Random test data (feature: fake)
+│   ├── cast.rs        # Value coercion
+│   ├── delta.rs       # Diff computation
+│   ├── patch.rs       # Apply diffs
+│   └── clean.rs       # Remove extraneous properties
+└── codegen/           # Code generation (feature: codegen)
 ```
 
 ## Build & Test Commands
@@ -120,7 +108,7 @@ cargo fmt --check
 - Rust edition 2021
 - Use `thiserror` for error types
 - Handlebars templates in `src/codegen/templates/`
-- Feature flags: `codegen`, `safetensor`, `ffi`
+- Feature flags: `codegen`, `fake`, `safetensor`, `ffi`
 - Serde with `#[serde]` attributes for JSON compatibility with TypeBox
 
 ## Key Files
@@ -131,6 +119,8 @@ cargo fmt --check
 | `src/schema.rs` | Core Schema enum |
 | `src/builder.rs` | SchemaBuilder API |
 | `src/validate.rs` | Validation logic |
+| `src/value/mod.rs` | Value enum with JSON conversion |
+| `src/value/*.rs` | Value operations (check, clone, cast, etc.) |
 | `src/layout.rs` | Binary layout calculation |
 | `src/codegen/` | Code generators (Rust, TypeScript) |
 | `tests/test_schema.rs` | Integration tests |

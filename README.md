@@ -1,43 +1,38 @@
 # typebox-rs
 
-JSON Schema type construction with validation, code generation, and binary layout.
-
-## Features
-
-- **Schema Builder**: Construct schemas programmatically with a fluent API
-- **Validation**: Runtime validation against JSON values
-- **Code Generation**: Generate Rust, TypeScript, Python, and C types from schemas
-- **Binary Layout**: Calculate memory layout for structs and tensors
-- **FFI Ready**: C-compatible types for cross-language interop
+JSON Schema type construction with validation, code generation, and binary layout. Inspired by [TypeBox](https://github.com/sinclairzx81/typebox).
 
 ## Example
 
 ```rust
-use typebox::{SchemaBuilder, RustGenerator, TypeScriptGenerator, validate};
+use typebox::{SchemaBuilder, Value, check, create, delta, patch};
 
 // Define a schema
-let person_schema = SchemaBuilder::object()
+let person = SchemaBuilder::object()
     .field("id", SchemaBuilder::int64())
-    .field("name", SchemaBuilder::string())
-    .optional_field("email", SchemaBuilder::string())
+    .field("name", SchemaBuilder::string().build())
+    .optional_field("email", SchemaBuilder::string().build())
     .named("Person");
 
-// Validate JSON
-let json = serde_json::json!({
-    "id": 1,
-    "name": "Alice"
-});
-assert!(validate(&person_schema, &json).is_ok());
+// Create a default value
+let value = create(&person)?;
+assert!(check(&person, &value));
 
-// Generate Rust types
-let rust_gen = RustGenerator::new();
-let rust_code = rust_gen.generate("Person", &person_schema)?;
-// pub struct Person { pub id: i64, pub name: String, pub email: Option<String> }
+// Work with values
+let a = Value::object()
+    .field("id", Value::Int64(1))
+    .field("name", Value::String("Alice".to_string()))
+    .build();
 
-// Generate TypeScript types
-let ts_gen = TypeScriptGenerator::new();
-let ts_code = ts_gen.generate("Person", &person_schema)?;
-// export interface Person { id: number; name: string; email?: string; }
+let b = Value::object()
+    .field("id", Value::Int64(1))
+    .field("name", Value::String("Bob".to_string()))
+    .build();
+
+// Compute and apply diffs
+let edits = delta(&a, &b);
+let restored = patch(&a, &edits)?;
+assert_eq!(restored, b);
 ```
 
 ## Usage
@@ -47,15 +42,16 @@ let ts_code = ts_gen.generate("Person", &person_schema)?;
 typebox = "0.1"
 ```
 
-### Features
+## Feature Flags
 
-- `codegen` (default): Enable code generation
-- `safetensor`: SafeTensor file reading support
-- `ffi`: C-compatible FFI types
+| Flag | Description |
+|------|-------------|
+| `codegen` | Generate Rust/TypeScript code from schemas |
+| `fake` | Generate random test data (`fake` + `rand` crates) |
+| `safetensor` | SafeTensor file reading support |
+| `ffi` | C-compatible FFI types |
 
-## Inspiration
-
-This project is inspired by [TypeBox](https://github.com/sinclairzx81/typebox), a TypeScript library for JSON Schema type construction.
+Default: none (minimal by default)
 
 ## License
 

@@ -89,6 +89,7 @@ pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
 mod tests {
     use super::*;
     use crate::builder::SchemaBuilder;
+    use crate::schema::LiteralValue;
 
     #[test]
     fn test_clean_primitives() {
