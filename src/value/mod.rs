@@ -1,5 +1,6 @@
 pub mod cast;
 pub mod check;
+pub mod clean;
 pub mod clone;
 pub mod create;
 pub mod delta;
@@ -16,6 +17,7 @@ use std::borrow::Cow;
 
 pub use cast::cast;
 pub use check::{check, check_with_errors};
+pub use clean::clean;
 pub use clone::clone;
 pub use create::create;
 pub use delta::{delta, diff_summary, Delta, Edit};

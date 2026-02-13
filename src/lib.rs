@@ -15,13 +15,14 @@ pub mod codegen;
 // pub mod safetensor;
 
 pub use builder::SchemaBuilder;
-pub use error::{CastError, CreateError, Error, PatchError};
+pub use error::{CastError, CleanError, CreateError, Error, PatchError};
 pub use layout::Layout;
 pub use schema::{LiteralValue, Schema, StringFormat};
 pub use validate::validate;
 pub use value::Value;
 pub use value::{
-    cast, check, check_with_errors, clone, create, delta, diff_summary, equal, patch, Delta, Edit,
+    cast, check, check_with_errors, clean, clone, create, delta, diff_summary, equal, patch, Delta,
+    Edit,
 };
 
 #[cfg(feature = "fake")]

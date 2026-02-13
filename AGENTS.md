@@ -41,12 +41,11 @@ This project follows the alkimiadev pattern for separating code from development
 
 **Milestone M1:** ✅ Complete - Schema enum with inline constraints, custom Value enum
 
-**Milestone M2:** In Progress - Value operations
+**Milestone M2:** ✅ Complete - Value operations
 
 **See:** `/workspace/@alkimiadev/plans/typebox-rs/decisions.md` for architecture decisions.
 
 **Remaining milestones** (see plans):
-- M2: Value operations (check, clone, equal, create, fake, cast, delta, patch, clean)
 - M3: SafeTensor reader with schema metadata
 - M4: FFI layer for cross-language clients
 - M5: Ladybug integration
@@ -65,7 +64,7 @@ Following TypeBox's `value` module structure:
 | `cast` | ✅ | Coerce value to match schema |
 | `delta` | ✅ | Compute diff (insert/update/delete) |
 | `patch` | ✅ | Apply delta edits |
-| `clean` | TODO | Remove extraneous properties |
+| `clean` | ✅ | Remove extraneous properties |
 | `create` | TODO | Generate default value from schema |
 | `clone` | TODO | Deep clone values |
 | `equal` | TODO | Structural equality comparison |
