@@ -15,12 +15,13 @@ pub mod codegen;
 // pub mod safetensor;
 
 pub use builder::SchemaBuilder;
+pub use error::CreateError;
 pub use error::Error;
 pub use layout::Layout;
 pub use schema::{LiteralValue, Schema, StringFormat};
 pub use validate::validate;
 pub use value::Value;
-pub use value::{check, check_with_errors, clone, equal};
+pub use value::{check, check_with_errors, clone, create, equal};
 
 #[cfg(feature = "codegen")]
 pub use codegen::{RustGenerator, SchemaRegistry, TypeScriptGenerator};

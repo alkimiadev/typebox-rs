@@ -60,6 +60,7 @@ Following TypeBox's `value` module structure:
 | `check` | ✅ | Validate value against schema |
 | `clone` | ✅ | Deep clone values |
 | `equal` | ✅ | Structural equality comparison |
+| `create` | ✅ | Generate default value from schema |
 | `fake` | TODO | Generate random test data from schema |
 | `create` | TODO | Generate default value from schema |
 | `clone` | TODO | Deep clone values |
