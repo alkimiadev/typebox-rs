@@ -1,0 +1,33 @@
+[package]
+name = "typebox"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["alkimiadev"]
+description = "JSON Schema type construction with validation, code generation, and binary layout"
+repository = "https://github.com/alkimiadev/typebox-rs"
+keywords = ["json-schema", "validation", "codegen", "typescript", "ffi"]
+categories = ["data-structures", "development-tools::ffi", "encoding"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+handlebars = "5"
+
+[dependencies.memmap2]
+version = "0.9"
+optional = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = ["codegen"]
+codegen = []
+safetensor = ["memmap2"]
+ffi = []
+
+[[example]]
+name = "ladybug_types"
+required-features = ["codegen"]
