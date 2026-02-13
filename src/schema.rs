@@ -1,10 +1,15 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+/// JSON Schema type definition.
+///
+/// Use [`SchemaBuilder`](crate::SchemaBuilder) for a fluent API to construct schemas.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Schema {
+    /// Null type.
     Null,
+    /// Boolean type.
     Bool,
 
     Int8 {

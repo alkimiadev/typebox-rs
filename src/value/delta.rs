@@ -1,15 +1,26 @@
+//! Diff computation between values.
+
 use crate::value::Value;
 use indexmap::IndexMap;
 
+/// A single edit operation in a delta.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Edit {
+    /// Insert a new value at the path.
     Insert { path: String, value: Value },
+    /// Update the value at the path.
     Update { path: String, value: Value },
+    /// Delete the value at the path.
     Delete { path: String },
 }
 
+/// A sequence of edit operations.
 pub type Delta = Vec<Edit>;
 
+/// Compute the difference between two values.
+///
+/// Returns a list of [`Edit`] operations using JSON pointer paths.
+/// Use [`patch()`](crate::patch()) to apply the edits.
 pub fn delta(current: &Value, next: &Value) -> Delta {
     let mut edits = Vec::new();
     collect_edits("", current, next, &mut edits);

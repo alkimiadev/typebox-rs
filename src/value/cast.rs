@@ -1,8 +1,14 @@
+//! Value coercion to match schemas.
+
 use crate::error::CastError;
 use crate::schema::{LiteralValue, Schema};
 use crate::value::Value;
 use indexmap::IndexMap;
 
+/// Coerce a value to conform to a schema.
+///
+/// Performs type conversions (string to int, int to bool, etc.),
+/// clamps numeric values to bounds, and fills in missing object fields.
 pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
     match (schema, value) {
         (Schema::Null, Value::Null) => Ok(Value::Null),

@@ -1,8 +1,14 @@
+//! Default value generation from schemas.
+
 use crate::error::CreateError;
 use crate::schema::{LiteralValue, Schema};
 use crate::value::Value;
 use indexmap::IndexMap;
 
+/// Create a default value conforming to the schema.
+///
+/// Uses minimum bounds for numbers, empty strings, empty arrays,
+/// and required object fields.
 pub fn create(schema: &Schema) -> Result<Value, CreateError> {
     match schema {
         Schema::Null => Ok(Value::Null),

@@ -1,3 +1,8 @@
+//! Value type and operations.
+//!
+//! This module provides the [`Value`] enum and operations for working with
+//! schema-constrained values.
+
 pub mod cast;
 pub mod check;
 pub mod clean;
@@ -27,32 +32,51 @@ pub use patch::patch;
 #[cfg(feature = "fake")]
 pub use fake::{fake, fake_with_context, FakeContext};
 
+/// A dynamically-typed value with schema-aware operations.
+///
+/// Supports JSON-compatible types plus typed arrays for binary/tensor data.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    /// Null value.
     Null,
+    /// Boolean value.
     Bool(bool),
+    /// 64-bit signed integer (used for all integer types).
     Int64(i64),
+    /// 64-bit floating point (used for all float types).
     Float64(f64),
+    /// String value.
     String(String),
+    /// Byte array.
     Bytes(Vec<u8>),
+    /// Array of values.
     Array(Vec<Value>),
+    /// Object with named fields.
     Object(IndexMap<String, Value>),
+    /// Typed array of 32-bit floats.
     Float32Array(Vec<f32>),
+    /// Typed array of 64-bit floats.
     Float64Array(Vec<f64>),
+    /// Typed array of 32-bit integers.
     Int32Array(Vec<i32>),
+    /// Typed array of 64-bit integers.
     Int64Array(Vec<i64>),
+    /// Typed array of 8-bit unsigned integers.
     UInt8Array(Vec<u8>),
 }
 
 impl Value {
+    /// Create a null value.
     pub fn null() -> Self {
         Value::Null
     }
 
+    /// Create a boolean value.
     pub fn bool(b: bool) -> Self {
         Value::Bool(b)
     }
 
+    /// Create a 64-bit integer value.
     pub fn int64(n: i64) -> Self {
         Value::Int64(n)
     }

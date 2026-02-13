@@ -1,5 +1,8 @@
+//! Structural equality comparison.
+
 use crate::value::Value;
 
+/// Check if two values are structurally equal.
 pub fn equal(a: &Value, b: &Value) -> bool {
     a == b
 }

@@ -1,6 +1,12 @@
+//! Apply delta edits to values.
+
 use crate::error::PatchError;
 use crate::value::{clone, delta::Edit, Value};
 
+/// Apply a sequence of edits to a value.
+///
+/// Returns a new value with the edits applied. Uses JSON pointer paths
+/// to navigate to the target locations.
 pub fn patch(value: &Value, edits: &[Edit]) -> Result<Value, PatchError> {
     if edits.is_empty() {
         return Ok(clone(value));

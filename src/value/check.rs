@@ -1,11 +1,17 @@
+//! Value validation against schemas.
+
 use crate::error::ValidationError;
 use crate::schema::Schema;
 use crate::value::Value;
 
+/// Check if a value conforms to a schema.
+///
+/// Returns `true` if validation succeeds, `false` otherwise.
 pub fn check(schema: &Schema, value: &Value) -> bool {
     crate::validate::validate(schema, value).is_ok()
 }
 
+/// Check if a value conforms to a schema, returning detailed errors.
 pub fn check_with_errors(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
     crate::validate::validate(schema, value)
 }

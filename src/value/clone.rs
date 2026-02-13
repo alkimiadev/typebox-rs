@@ -1,5 +1,8 @@
+//! Deep clone values.
+
 use crate::value::Value;
 
+/// Create a deep clone of a value.
 pub fn clone(value: &Value) -> Value {
     value.clone()
 }

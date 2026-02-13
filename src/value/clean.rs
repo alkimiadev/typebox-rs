@@ -1,8 +1,14 @@
+//! Remove extraneous properties from values.
+
 use crate::error::CleanError;
 use crate::schema::Schema;
 use crate::value::Value;
 use indexmap::IndexMap;
 
+/// Remove properties from a value that are not defined in the schema.
+///
+/// Object fields not in the schema are removed unless they match
+/// `additionalProperties`. Nested objects and arrays are cleaned recursively.
 pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
     match (schema, value) {
         (Schema::Null, Value::Null) => Ok(Value::Null),
