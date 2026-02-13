@@ -2,6 +2,7 @@ pub mod cast;
 pub mod check;
 pub mod clone;
 pub mod create;
+pub mod delta;
 pub mod equal;
 
 #[cfg(feature = "fake")]
@@ -16,6 +17,7 @@ pub use cast::cast;
 pub use check::{check, check_with_errors};
 pub use clone::clone;
 pub use create::create;
+pub use delta::{delta, diff_summary, Delta, Edit};
 pub use equal::equal;
 
 #[cfg(feature = "fake")]
