@@ -4,6 +4,7 @@ pub mod clone;
 pub mod create;
 pub mod delta;
 pub mod equal;
+pub mod patch;
 
 #[cfg(feature = "fake")]
 pub mod fake;
@@ -19,6 +20,7 @@ pub use clone::clone;
 pub use create::create;
 pub use delta::{delta, diff_summary, Delta, Edit};
 pub use equal::equal;
+pub use patch::patch;
 
 #[cfg(feature = "fake")]
 pub use fake::{fake, fake_with_context, FakeContext};

@@ -64,7 +64,8 @@ Following TypeBox's `value` module structure:
 | `fake` | ✅ | Generate random test data from schema |
 | `cast` | ✅ | Coerce value to match schema |
 | `delta` | ✅ | Compute diff (insert/update/delete) |
-| `patch` | TODO | Apply delta edits |
+| `patch` | ✅ | Apply delta edits |
+| `clean` | TODO | Remove extraneous properties |
 | `create` | TODO | Generate default value from schema |
 | `clone` | TODO | Deep clone values |
 | `equal` | TODO | Structural equality comparison |
