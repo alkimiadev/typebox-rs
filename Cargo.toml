@@ -19,7 +19,7 @@ base64 = "0.22"
 # Optional dependencies
 handlebars = { version = "5", optional = true }
 fake = { version = "4", optional = true }
-rand = { version = "0.8", optional = true }
+rand = { version = "0.9", optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
 memmap2 = { version = "0.9", optional = true }
 

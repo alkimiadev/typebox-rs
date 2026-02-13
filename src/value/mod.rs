@@ -3,6 +3,9 @@ pub mod clone;
 pub mod create;
 pub mod equal;
 
+#[cfg(feature = "fake")]
+pub mod fake;
+
 use crate::error::ParseError;
 use crate::schema::{LiteralValue, Schema};
 use indexmap::IndexMap;
@@ -12,6 +15,9 @@ pub use check::{check, check_with_errors};
 pub use clone::clone;
 pub use create::create;
 pub use equal::equal;
+
+#[cfg(feature = "fake")]
+pub use fake::{fake, fake_with_context, FakeContext};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
