@@ -1,5 +1,7 @@
 /target
 /Cargo.lock
+opencode.json
+.opencode
 *.swp
 *.swo
 *~
