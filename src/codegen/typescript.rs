@@ -71,7 +71,7 @@ impl TypeScriptGenerator {
 
         for code in rendered {
             output.push_str(&code);
-            output.push_str("\n");
+            output.push('\n');
         }
 
         Ok(output)
@@ -117,15 +117,18 @@ impl SchemaContext {
         let mut properties = Vec::new();
 
         if let Schema::Object {
-            properties: props, ..
+            properties: props,
+            required,
+            ..
         } = schema
         {
-            for prop in props {
+            for (prop_name, prop_schema) in props {
+                let is_optional = !required.contains(prop_name);
                 properties.push(PropertyContext {
-                    name: prop.name.clone(),
-                    ts_type: schema_to_ts_type(&prop.schema(), &HashMap::new()),
-                    optional: prop.optional,
-                    description: prop.description.clone(),
+                    name: prop_name.clone(),
+                    ts_type: schema_to_ts_type(prop_schema, &HashMap::new()),
+                    optional: is_optional,
+                    description: None,
                 });
             }
         }
@@ -143,11 +146,17 @@ fn schema_to_ts_type(schema: &Schema, refs: &HashMap<String, String>) -> String 
     match schema {
         Schema::Null => "null".to_string(),
         Schema::Bool => "boolean".to_string(),
-        Schema::Int8 | Schema::Int16 | Schema::Int32 | Schema::Int64 => "number".to_string(),
-        Schema::UInt8 | Schema::UInt16 | Schema::UInt32 | Schema::UInt64 => "number".to_string(),
-        Schema::Float32 | Schema::Float64 => "number".to_string(),
-        Schema::String => "string".to_string(),
-        Schema::Bytes => "Uint8Array".to_string(),
+        Schema::Int8 { .. }
+        | Schema::Int16 { .. }
+        | Schema::Int32 { .. }
+        | Schema::Int64 { .. } => "number".to_string(),
+        Schema::UInt8 { .. }
+        | Schema::UInt16 { .. }
+        | Schema::UInt32 { .. }
+        | Schema::UInt64 { .. } => "number".to_string(),
+        Schema::Float32 { .. } | Schema::Float64 { .. } => "number".to_string(),
+        Schema::String { .. } => "string".to_string(),
+        Schema::Bytes { .. } => "Uint8Array".to_string(),
 
         Schema::Array { items, .. } => {
             format!("Array<{}>", schema_to_ts_type(items, refs))
@@ -227,8 +236,8 @@ mod tests {
         let gen = TypeScriptGenerator::new();
         let schema = SchemaBuilder::object()
             .field("id", SchemaBuilder::int64())
-            .field("name", SchemaBuilder::string())
-            .optional_field("email", SchemaBuilder::string())
+            .field("name", SchemaBuilder::string().build())
+            .optional_field("email", SchemaBuilder::string().build())
             .build();
 
         let output = gen.generate("Person", &schema).unwrap();
@@ -259,7 +268,7 @@ mod tests {
             "Person",
             SchemaBuilder::object()
                 .field("id", SchemaBuilder::int64())
-                .field("name", SchemaBuilder::string())
+                .field("name", SchemaBuilder::string().build())
                 .build(),
         );
 

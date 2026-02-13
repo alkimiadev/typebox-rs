@@ -1,17 +1,17 @@
-use typebox::{validate, SchemaBuilder};
+use typebox::{validate, SchemaBuilder, Value};
 
 #[test]
 fn test_basic_schema() {
     let schema = SchemaBuilder::object()
         .field("id", SchemaBuilder::int64())
-        .field("name", SchemaBuilder::string())
+        .field("name", SchemaBuilder::string().build())
         .optional_field("active", SchemaBuilder::bool())
         .build();
 
-    let valid = serde_json::json!({
-        "id": 42,
-        "name": "test"
-    });
+    let valid = Value::object()
+        .field("id", Value::Int64(42))
+        .field("name", Value::String("test".to_string()))
+        .build();
 
     assert!(validate(&schema, &valid).is_ok());
 }
@@ -23,13 +23,13 @@ fn test_array_schema() {
         .max_items(10)
         .build();
 
-    let valid = serde_json::json!([1, 2, 3]);
-    let empty = serde_json::json!([]);
-    let too_many: Vec<i64> = (0..20).collect();
+    let valid = Value::Array(vec![Value::Int64(1), Value::Int64(2), Value::Int64(3)]);
+    let empty = Value::Array(vec![]);
+    let too_many: Value = Value::Array((0..20).map(Value::Int64).collect());
 
     assert!(validate(&schema, &valid).is_ok());
     assert!(validate(&schema, &empty).is_err());
-    assert!(validate(&schema, &serde_json::json!(too_many)).is_err());
+    assert!(validate(&schema, &too_many).is_err());
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn test_rust_codegen() {
         "Person",
         SchemaBuilder::object()
             .field("id", SchemaBuilder::int64())
-            .field("name", SchemaBuilder::string())
+            .field("name", SchemaBuilder::string().build())
             .build(),
     );
 
@@ -81,7 +81,7 @@ fn test_typescript_codegen() {
         "Person",
         SchemaBuilder::object()
             .field("id", SchemaBuilder::int64())
-            .field("name", SchemaBuilder::string())
+            .field("name", SchemaBuilder::string().build())
             .build(),
     );
 
@@ -89,4 +89,28 @@ fn test_typescript_codegen() {
     assert!(code.contains("export interface Person"));
     assert!(code.contains("id: number"));
     assert!(code.contains("name: string"));
+}
+
+#[test]
+fn test_value_from_json() {
+    let json = serde_json::json!({"id": 42, "name": "test"});
+    let schema = SchemaBuilder::object()
+        .field("id", SchemaBuilder::int64())
+        .field("name", SchemaBuilder::string().build())
+        .build();
+
+    let value = Value::from_json(json, &schema).unwrap();
+    assert!(validate(&schema, &value).is_ok());
+}
+
+#[test]
+fn test_value_to_json() {
+    let value = Value::object()
+        .field("id", Value::Int64(42))
+        .field("name", Value::String("test".to_string()))
+        .build();
+
+    let json = value.to_json();
+    assert_eq!(json["id"], 42);
+    assert_eq!(json["name"], "test");
 }

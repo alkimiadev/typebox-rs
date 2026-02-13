@@ -2,48 +2,48 @@ use typebox::{RustGenerator, SchemaBuilder, SchemaRegistry, TypeScriptGenerator}
 
 fn main() {
     let cypher_request = SchemaBuilder::object()
-        .field("query", SchemaBuilder::string())
+        .field("query", SchemaBuilder::string().build())
         .optional_field(
             "params",
-            SchemaBuilder::object().additional_properties(true).build(),
+            SchemaBuilder::object().additional_properties(None).build(),
         )
         .named("CypherRequest");
 
     let cypher_response = SchemaBuilder::object()
         .field(
             "rows",
-            SchemaBuilder::array(SchemaBuilder::object().additional_properties(true).build())
+            SchemaBuilder::array(SchemaBuilder::object().additional_properties(None).build())
                 .build(),
         )
         .optional_field(
             "dataTypes",
-            SchemaBuilder::object().additional_properties(true).build(),
+            SchemaBuilder::object().additional_properties(None).build(),
         )
         .field("isSchemaChanged", SchemaBuilder::bool())
         .named("CypherResponse");
 
     let property_info = SchemaBuilder::object()
-        .field("name", SchemaBuilder::string())
-        .field("type", SchemaBuilder::string())
+        .field("name", SchemaBuilder::string().build())
+        .field("type", SchemaBuilder::string().build())
         .field("isPrimaryKey", SchemaBuilder::bool())
         .named("PropertyInfo");
 
     let table_info = SchemaBuilder::object()
-        .field("name", SchemaBuilder::string())
-        .field("comment", SchemaBuilder::string())
+        .field("name", SchemaBuilder::string().build())
+        .field("comment", SchemaBuilder::string().build())
         .field(
             "properties",
             SchemaBuilder::array(SchemaBuilder::r#ref("PropertyInfo")).build(),
         )
         .optional_field("isPrimaryKey", SchemaBuilder::bool())
-        .optional_field("src", SchemaBuilder::string())
-        .optional_field("dst", SchemaBuilder::string())
+        .optional_field("src", SchemaBuilder::string().build())
+        .optional_field("dst", SchemaBuilder::string().build())
         .optional_field(
             "connectivity",
             SchemaBuilder::array(
                 SchemaBuilder::object()
-                    .field("src", SchemaBuilder::string())
-                    .field("dst", SchemaBuilder::string())
+                    .field("src", SchemaBuilder::string().build())
+                    .field("dst", SchemaBuilder::string().build())
                     .build(),
             )
             .build(),
@@ -63,10 +63,10 @@ fn main() {
             "relGroups",
             SchemaBuilder::array(
                 SchemaBuilder::object()
-                    .field("name", SchemaBuilder::string())
+                    .field("name", SchemaBuilder::string().build())
                     .field(
                         "relTables",
-                        SchemaBuilder::array(SchemaBuilder::string()).build(),
+                        SchemaBuilder::array(SchemaBuilder::string().build()).build(),
                     )
                     .build(),
             )
@@ -76,8 +76,8 @@ fn main() {
             "rdf",
             SchemaBuilder::array(
                 SchemaBuilder::object()
-                    .field("prefix", SchemaBuilder::string())
-                    .field("iri", SchemaBuilder::string())
+                    .field("prefix", SchemaBuilder::string().build())
+                    .field("iri", SchemaBuilder::string().build())
                     .build(),
             )
             .build(),

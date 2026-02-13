@@ -30,33 +30,40 @@ impl crate::schema::Schema {
         match self {
             Schema::Null => Layout::new(0, 1),
             Schema::Bool => Layout::new(1, 1),
-            Schema::Int8 | Schema::UInt8 => Layout::new(1, 1),
-            Schema::Int16 | Schema::UInt16 => Layout::new(2, 2),
-            Schema::Int32 | Schema::UInt32 | Schema::Float32 => Layout::new(4, 4),
-            Schema::Int64 | Schema::UInt64 | Schema::Float64 => Layout::new(8, 8),
+            Schema::Int8 { .. } | Schema::UInt8 { .. } => Layout::new(1, 1),
+            Schema::Int16 { .. } | Schema::UInt16 { .. } => Layout::new(2, 2),
+            Schema::Int32 { .. } | Schema::UInt32 { .. } | Schema::Float32 { .. } => {
+                Layout::new(4, 4)
+            }
+            Schema::Int64 { .. } | Schema::UInt64 { .. } | Schema::Float64 { .. } => {
+                Layout::new(8, 8)
+            }
 
-            Schema::String => Layout::new(0, 8), // Variable size, pointer-aligned
-            Schema::Bytes => Layout::new(0, 8),  // Variable size, pointer-aligned
+            Schema::String { .. } => Layout::new(0, 8), // Variable size, pointer-aligned
+            Schema::Bytes { .. } => Layout::new(0, 8),  // Variable size, pointer-aligned
 
             Schema::Array { items, .. } => {
                 let item_layout = items.layout();
                 Layout::new(0, item_layout.align)
             }
 
-            Schema::Object { properties, .. } => {
+            Schema::Object {
+                properties,
+                required,
+                ..
+            } => {
                 let mut offset = 0;
                 let mut max_align = 1;
                 let mut offsets = vec![];
 
-                for prop in properties {
-                    if prop.optional {
+                for (name, schema) in properties {
+                    if !required.contains(name) {
                         offsets.push(0);
                         continue;
                     }
 
-                    let field_layout = prop.schema().layout();
+                    let field_layout = schema.layout();
 
-                    // Align offset
                     if field_layout.align > 1 {
                         offset = (offset + field_layout.align - 1) & !(field_layout.align - 1);
                     }
@@ -66,7 +73,6 @@ impl crate::schema::Schema {
                     max_align = max_align.max(field_layout.align);
                 }
 
-                // Pad to alignment
                 if max_align > 1 {
                     offset = (offset + max_align - 1) & !(max_align - 1);
                 }
@@ -99,14 +105,13 @@ impl crate::schema::Schema {
             }
 
             Schema::Union { any_of } => {
-                // Union takes the max size and max alignment
                 let max_size = any_of.iter().map(|s| s.layout().size).max().unwrap_or(0);
                 let max_align = any_of.iter().map(|s| s.layout().align).max().unwrap_or(1);
                 Layout::new(max_size, max_align)
             }
 
             Schema::Literal { .. } => Layout::new(0, 1),
-            Schema::Enum { .. } => Layout::new(1, 1), // Represented as u8
+            Schema::Enum { .. } => Layout::new(1, 1),
 
             Schema::Ref { .. } => Layout::new(0, 1),
             Schema::Named { schema, .. } => schema.layout(),

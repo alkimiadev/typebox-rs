@@ -13,18 +13,23 @@ categories = ["data-structures", "development-tools::ffi", "encoding"]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
-handlebars = "5"
+indexmap = { version = "2", features = ["serde"] }
+base64 = "0.22"
 
-[dependencies.memmap2]
-version = "0.9"
-optional = true
+# Optional dependencies
+handlebars = { version = "5", optional = true }
+fake = { version = "4", optional = true }
+rand = { version = "0.8", optional = true }
+uuid = { version = "1", features = ["v4"], optional = true }
+memmap2 = { version = "0.9", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
 
 [features]
-default = ["codegen"]
-codegen = []
+default = []
+codegen = ["handlebars"]
+fake = ["dep:fake", "dep:rand", "dep:uuid"]
 safetensor = ["memmap2"]
 ffi = []
 

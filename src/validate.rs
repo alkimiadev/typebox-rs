@@ -1,128 +1,178 @@
 use crate::error::ValidationError;
 use crate::schema::{LiteralValue, Schema};
-use std::collections::HashSet;
+use crate::value::Value;
 
-pub fn validate(schema: &Schema, value: &serde_json::Value) -> Result<(), ValidationError> {
+pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
     match (schema, value) {
-        (Schema::Null, serde_json::Value::Null) => Ok(()),
+        (Schema::Null, Value::Null) => Ok(()),
 
-        (Schema::Bool, serde_json::Value::Bool(_)) => Ok(()),
+        (Schema::Bool, Value::Bool(_)) => Ok(()),
 
-        (Schema::Int8, serde_json::Value::Number(n)) => {
-            if let Some(i) = n.as_i64() {
-                if i >= i8::MIN as i64 && i <= i8::MAX as i64 {
-                    return Ok(());
+        (Schema::Int8 { minimum, maximum }, Value::Int64(n)) => {
+            let n8 = *n as i8;
+            if *n != i64::from(n8) {
+                return Err(ValidationError::TypeMismatch {
+                    expected: "int8".to_string(),
+                    actual: value_type(value),
+                });
+            }
+            check_numeric_bounds(
+                f64::from(n8),
+                minimum.map(f64::from),
+                maximum.map(f64::from),
+            )?;
+            Ok(())
+        }
+
+        (Schema::Int16 { minimum, maximum }, Value::Int64(n)) => {
+            let n16 = *n as i16;
+            if *n != i64::from(n16) {
+                return Err(ValidationError::TypeMismatch {
+                    expected: "int16".to_string(),
+                    actual: value_type(value),
+                });
+            }
+            check_numeric_bounds(
+                f64::from(n16),
+                minimum.map(f64::from),
+                maximum.map(f64::from),
+            )?;
+            Ok(())
+        }
+
+        (Schema::Int32 { minimum, maximum }, Value::Int64(n)) => {
+            let n32 = *n as i32;
+            if *n != i64::from(n32) {
+                return Err(ValidationError::TypeMismatch {
+                    expected: "int32".to_string(),
+                    actual: value_type(value),
+                });
+            }
+            check_numeric_bounds(
+                f64::from(n32),
+                minimum.map(f64::from),
+                maximum.map(f64::from),
+            )?;
+            Ok(())
+        }
+
+        (Schema::Int64 { minimum, maximum }, Value::Int64(n)) => {
+            check_numeric_bounds(
+                *n as f64,
+                minimum.map(|m| m as f64),
+                maximum.map(|m| m as f64),
+            )?;
+            Ok(())
+        }
+
+        (Schema::UInt8 { minimum, maximum }, Value::Int64(n)) => {
+            if *n < 0 || *n > i64::from(u8::MAX) {
+                return Err(ValidationError::TypeMismatch {
+                    expected: "uint8".to_string(),
+                    actual: value_type(value),
+                });
+            }
+            check_numeric_bounds(
+                f64::from(*n as u8),
+                minimum.map(f64::from),
+                maximum.map(f64::from),
+            )?;
+            Ok(())
+        }
+
+        (Schema::UInt16 { minimum, maximum }, Value::Int64(n)) => {
+            if *n < 0 || *n > i64::from(u16::MAX) {
+                return Err(ValidationError::TypeMismatch {
+                    expected: "uint16".to_string(),
+                    actual: value_type(value),
+                });
+            }
+            check_numeric_bounds(
+                f64::from(*n as u16),
+                minimum.map(f64::from),
+                maximum.map(f64::from),
+            )?;
+            Ok(())
+        }
+
+        (Schema::UInt32 { minimum, maximum }, Value::Int64(n)) => {
+            if *n < 0 || *n > i64::from(u32::MAX) {
+                return Err(ValidationError::TypeMismatch {
+                    expected: "uint32".to_string(),
+                    actual: value_type(value),
+                });
+            }
+            check_numeric_bounds(
+                f64::from(*n as u32),
+                minimum.map(f64::from),
+                maximum.map(f64::from),
+            )?;
+            Ok(())
+        }
+
+        (Schema::UInt64 { minimum, maximum }, Value::Int64(n)) => {
+            if *n < 0 {
+                return Err(ValidationError::TypeMismatch {
+                    expected: "uint64".to_string(),
+                    actual: value_type(value),
+                });
+            }
+            check_numeric_bounds(
+                *n as f64,
+                minimum.map(|m| m as f64),
+                maximum.map(|m| m as f64),
+            )?;
+            Ok(())
+        }
+
+        (Schema::Float32 { minimum, maximum }, Value::Float64(f)) => {
+            check_numeric_bounds(*f, minimum.map(f64::from), maximum.map(f64::from))?;
+            Ok(())
+        }
+
+        (Schema::Float64 { minimum, maximum }, Value::Float64(f)) => {
+            check_numeric_bounds(*f, *minimum, *maximum)?;
+            Ok(())
+        }
+
+        (
+            Schema::String {
+                min_length,
+                max_length,
+                ..
+            },
+            Value::String(s),
+        ) => {
+            if let Some(min) = min_length {
+                if s.len() < *min {
+                    return Err(ValidationError::MinLength {
+                        min: *min,
+                        actual: s.len(),
+                    });
                 }
             }
-            Err(ValidationError::TypeMismatch {
-                expected: "int8".to_string(),
-                actual: value_type(value),
-            })
-        }
-
-        (Schema::Int16, serde_json::Value::Number(n)) => {
-            if let Some(i) = n.as_i64() {
-                if i >= i16::MIN as i64 && i <= i16::MAX as i64 {
-                    return Ok(());
-                }
-            }
-            Err(ValidationError::TypeMismatch {
-                expected: "int16".to_string(),
-                actual: value_type(value),
-            })
-        }
-
-        (Schema::Int32, serde_json::Value::Number(n)) => {
-            if let Some(i) = n.as_i64() {
-                if i >= i32::MIN as i64 && i <= i32::MAX as i64 {
-                    return Ok(());
-                }
-            }
-            Err(ValidationError::TypeMismatch {
-                expected: "int32".to_string(),
-                actual: value_type(value),
-            })
-        }
-
-        (Schema::Int64, serde_json::Value::Number(n)) => {
-            if n.is_i64() {
-                return Ok(());
-            }
-            Err(ValidationError::TypeMismatch {
-                expected: "int64".to_string(),
-                actual: value_type(value),
-            })
-        }
-
-        (Schema::UInt8, serde_json::Value::Number(n)) => {
-            if let Some(i) = n.as_u64() {
-                if i <= u8::MAX as u64 {
-                    return Ok(());
-                }
-            }
-            Err(ValidationError::TypeMismatch {
-                expected: "uint8".to_string(),
-                actual: value_type(value),
-            })
-        }
-
-        (Schema::UInt16, serde_json::Value::Number(n)) => {
-            if let Some(i) = n.as_u64() {
-                if i <= u16::MAX as u64 {
-                    return Ok(());
-                }
-            }
-            Err(ValidationError::TypeMismatch {
-                expected: "uint16".to_string(),
-                actual: value_type(value),
-            })
-        }
-
-        (Schema::UInt32, serde_json::Value::Number(n)) => {
-            if let Some(i) = n.as_u64() {
-                if i <= u32::MAX as u64 {
-                    return Ok(());
-                }
-            }
-            Err(ValidationError::TypeMismatch {
-                expected: "uint32".to_string(),
-                actual: value_type(value),
-            })
-        }
-
-        (Schema::UInt64, serde_json::Value::Number(n)) => {
-            if n.is_u64() {
-                return Ok(());
-            }
-            Err(ValidationError::TypeMismatch {
-                expected: "uint64".to_string(),
-                actual: value_type(value),
-            })
-        }
-
-        (Schema::Float32 | Schema::Float64, serde_json::Value::Number(_)) => Ok(()),
-
-        (Schema::String, serde_json::Value::String(_)) => Ok(()),
-
-        (Schema::Bytes, serde_json::Value::Array(arr)) => {
-            for item in arr {
-                if !item.is_number() {
-                    return Err(ValidationError::TypeMismatch {
-                        expected: "bytes".to_string(),
-                        actual: value_type(value),
+            if let Some(max) = max_length {
+                if s.len() > *max {
+                    return Err(ValidationError::MaxLength {
+                        max: *max,
+                        actual: s.len(),
                     });
                 }
             }
             Ok(())
         }
 
+        (Schema::Bytes { .. }, Value::Bytes(_)) => Ok(()),
+        (Schema::Bytes { .. }, Value::UInt8Array(_)) => Ok(()),
+
         (
             Schema::Array {
                 items,
                 min_items,
                 max_items,
+                ..
             },
-            serde_json::Value::Array(arr),
+            Value::Array(arr),
         ) => {
             if let Some(min) = min_items {
                 if arr.len() < *min {
@@ -147,38 +197,66 @@ pub fn validate(schema: &Schema, value: &serde_json::Value) -> Result<(), Valida
         }
 
         (
+            Schema::Array {
+                items: _,
+                min_items,
+                max_items,
+                ..
+            },
+            typed_arr,
+        ) if is_typed_array(typed_arr) => {
+            let len = typed_array_len(typed_arr);
+            if let Some(min) = min_items {
+                if len < *min {
+                    return Err(ValidationError::MinItems {
+                        min: *min,
+                        actual: len,
+                    });
+                }
+            }
+            if let Some(max) = max_items {
+                if len > *max {
+                    return Err(ValidationError::MaxItems {
+                        max: *max,
+                        actual: len,
+                    });
+                }
+            }
+            Ok(())
+        }
+
+        (
             Schema::Object {
                 properties,
+                required,
                 additional_properties,
             },
-            serde_json::Value::Object(map),
+            Value::Object(map),
         ) => {
-            let schema_fields: HashSet<_> = properties.iter().map(|p| &p.name).collect();
-
-            // Check required fields
-            for prop in properties {
-                if let Some(val) = map.get(&prop.name) {
-                    validate(&prop.schema(), val).map_err(|e| e.with_path(&prop.name))?;
-                } else if !prop.optional {
+            for name in required {
+                if !map.contains_key(name) {
                     return Err(ValidationError::MissingField {
-                        field: prop.name.clone(),
+                        field: name.clone(),
                     });
                 }
             }
 
-            // Check for unknown fields
-            if !additional_properties {
-                for key in map.keys() {
-                    if !schema_fields.contains(key) {
-                        return Err(ValidationError::UnknownField { field: key.clone() });
-                    }
+            for (name, val) in map {
+                if let Some(prop_schema) = properties.get(name) {
+                    validate(prop_schema, val).map_err(|e| e.with_path(name))?;
+                } else if let Some(ref additional) = additional_properties {
+                    validate(additional, val).map_err(|e| e.with_path(name))?;
+                } else {
+                    return Err(ValidationError::UnknownField {
+                        field: name.clone(),
+                    });
                 }
             }
 
             Ok(())
         }
 
-        (Schema::Tuple { items }, serde_json::Value::Array(arr)) => {
+        (Schema::Tuple { items }, Value::Array(arr)) => {
             if arr.len() != items.len() {
                 return Err(ValidationError::TypeMismatch {
                     expected: format!("tuple of {} elements", items.len()),
@@ -201,19 +279,15 @@ pub fn validate(schema: &Schema, value: &serde_json::Value) -> Result<(), Valida
         }
 
         (Schema::Literal { value: lit }, val) => match (lit, val) {
-            (LiteralValue::Null, serde_json::Value::Null) => Ok(()),
-            (LiteralValue::Boolean(b), serde_json::Value::Bool(v)) if b == v => Ok(()),
-            (LiteralValue::String(s), serde_json::Value::String(v)) if s == v => Ok(()),
-            (LiteralValue::Number(n), serde_json::Value::Number(v)) if v.as_i64() == Some(*n) => {
-                Ok(())
-            }
-            (LiteralValue::Float(f), serde_json::Value::Number(v)) if v.as_f64() == Some(*f) => {
-                Ok(())
-            }
+            (LiteralValue::Null, Value::Null) => Ok(()),
+            (LiteralValue::Boolean(b), Value::Bool(v)) if b == v => Ok(()),
+            (LiteralValue::String(s), Value::String(v)) if s == v => Ok(()),
+            (LiteralValue::Number(n), Value::Int64(v)) if n == v => Ok(()),
+            (LiteralValue::Float(f), Value::Float64(v)) if (f - v).abs() < f64::EPSILON => Ok(()),
             _ => Err(ValidationError::InvalidLiteral),
         },
 
-        (Schema::Enum { values }, serde_json::Value::String(s)) => {
+        (Schema::Enum { values }, Value::String(s)) => {
             if values.contains(s) {
                 Ok(())
             } else {
@@ -221,13 +295,10 @@ pub fn validate(schema: &Schema, value: &serde_json::Value) -> Result<(), Valida
             }
         }
 
-        (Schema::Ref { reference }, value) => {
-            // TODO: Resolve reference from registry
-            Err(ValidationError::TypeMismatch {
-                expected: reference.clone(),
-                actual: value_type(value),
-            })
-        }
+        (Schema::Ref { reference }, _value) => Err(ValidationError::TypeMismatch {
+            expected: format!("resolved ref {}", reference),
+            actual: "unresolved".to_string(),
+        }),
 
         (Schema::Named { schema, .. }, value) => validate(schema, value),
 
@@ -238,14 +309,67 @@ pub fn validate(schema: &Schema, value: &serde_json::Value) -> Result<(), Valida
     }
 }
 
-fn value_type(value: &serde_json::Value) -> String {
+fn check_numeric_bounds(
+    value: f64,
+    minimum: Option<f64>,
+    maximum: Option<f64>,
+) -> Result<(), ValidationError> {
+    if let Some(min) = minimum {
+        if value < min {
+            return Err(ValidationError::BelowMinimum {
+                value,
+                minimum: min,
+            });
+        }
+    }
+    if let Some(max) = maximum {
+        if value > max {
+            return Err(ValidationError::AboveMaximum {
+                value,
+                maximum: max,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn is_typed_array(value: &Value) -> bool {
+    matches!(
+        value,
+        Value::Float32Array(_)
+            | Value::Float64Array(_)
+            | Value::Int32Array(_)
+            | Value::Int64Array(_)
+            | Value::UInt8Array(_)
+    )
+}
+
+fn typed_array_len(value: &Value) -> usize {
     match value {
-        serde_json::Value::Null => "null".to_string(),
-        serde_json::Value::Bool(_) => "boolean".to_string(),
-        serde_json::Value::Number(_) => "number".to_string(),
-        serde_json::Value::String(_) => "string".to_string(),
-        serde_json::Value::Array(_) => "array".to_string(),
-        serde_json::Value::Object(_) => "object".to_string(),
+        Value::Float32Array(arr) => arr.len(),
+        Value::Float64Array(arr) => arr.len(),
+        Value::Int32Array(arr) => arr.len(),
+        Value::Int64Array(arr) => arr.len(),
+        Value::UInt8Array(arr) => arr.len(),
+        _ => 0,
+    }
+}
+
+fn value_type(value: &Value) -> String {
+    match value {
+        Value::Null => "null".to_string(),
+        Value::Bool(_) => "boolean".to_string(),
+        Value::Int64(_) => "number".to_string(),
+        Value::Float64(_) => "number".to_string(),
+        Value::String(_) => "string".to_string(),
+        Value::Bytes(_) => "bytes".to_string(),
+        Value::Array(_) => "array".to_string(),
+        Value::Object(_) => "object".to_string(),
+        Value::Float32Array(_) => "Float32Array".to_string(),
+        Value::Float64Array(_) => "Float64Array".to_string(),
+        Value::Int32Array(_) => "Int32Array".to_string(),
+        Value::Int64Array(_) => "Int64Array".to_string(),
+        Value::UInt8Array(_) => "UInt8Array".to_string(),
     }
 }
 
@@ -256,37 +380,41 @@ mod tests {
 
     #[test]
     fn test_validate_primitives() {
-        assert!(validate(&SchemaBuilder::null(), &serde_json::json!(null)).is_ok());
-        assert!(validate(&SchemaBuilder::bool(), &serde_json::json!(true)).is_ok());
-        assert!(validate(&SchemaBuilder::int64(), &serde_json::json!(42)).is_ok());
-        assert!(validate(&SchemaBuilder::string(), &serde_json::json!("hello")).is_ok());
-        assert!(validate(&SchemaBuilder::float64(), &serde_json::json!(3.14)).is_ok());
+        assert!(validate(&SchemaBuilder::null(), &Value::Null).is_ok());
+        assert!(validate(&SchemaBuilder::bool(), &Value::Bool(true)).is_ok());
+        assert!(validate(&SchemaBuilder::int64(), &Value::Int64(42)).is_ok());
+        assert!(validate(
+            &SchemaBuilder::string().build(),
+            &Value::String("hello".to_string())
+        )
+        .is_ok());
+        assert!(validate(&SchemaBuilder::float64(), &Value::Float64(3.14)).is_ok());
     }
 
     #[test]
     fn test_validate_object() {
         let schema = SchemaBuilder::object()
             .field("id", SchemaBuilder::int64())
-            .field("name", SchemaBuilder::string())
-            .optional_field("email", SchemaBuilder::string())
+            .field("name", SchemaBuilder::string().build())
+            .optional_field("email", SchemaBuilder::string().build())
             .build();
 
-        let valid = serde_json::json!({
-            "id": 1,
-            "name": "Alice"
-        });
+        let valid = Value::object()
+            .field("id", Value::Int64(1))
+            .field("name", Value::String("Alice".to_string()))
+            .build();
         assert!(validate(&schema, &valid).is_ok());
 
-        let with_email = serde_json::json!({
-            "id": 2,
-            "name": "Bob",
-            "email": "bob@example.com"
-        });
+        let with_email = Value::object()
+            .field("id", Value::Int64(2))
+            .field("name", Value::String("Bob".to_string()))
+            .field("email", Value::String("bob@example.com".to_string()))
+            .build();
         assert!(validate(&schema, &with_email).is_ok());
 
-        let missing_required = serde_json::json!({
-            "name": "Charlie"
-        });
+        let missing_required = Value::object()
+            .field("name", Value::String("Charlie".to_string()))
+            .build();
         assert!(matches!(
             validate(&schema, &missing_required),
             Err(ValidationError::MissingField { .. })
@@ -300,34 +428,82 @@ mod tests {
             .max_items(3)
             .build();
 
-        assert!(validate(&schema, &serde_json::json!([1, 2])).is_ok());
+        assert!(validate(
+            &schema,
+            &Value::Array(vec![Value::Int64(1), Value::Int64(2)])
+        )
+        .is_ok());
         assert!(matches!(
-            validate(&schema, &serde_json::json!([])),
+            validate(&schema, &Value::Array(vec![])),
             Err(ValidationError::MinItems { .. })
         ));
         assert!(matches!(
-            validate(&schema, &serde_json::json!([1, 2, 3, 4])),
+            validate(
+                &schema,
+                &Value::Array(vec![
+                    Value::Int64(1),
+                    Value::Int64(2),
+                    Value::Int64(3),
+                    Value::Int64(4)
+                ])
+            ),
             Err(ValidationError::MaxItems { .. })
         ));
     }
 
     #[test]
     fn test_validate_union() {
-        let schema = SchemaBuilder::union(vec![SchemaBuilder::string(), SchemaBuilder::int64()]);
+        let schema = SchemaBuilder::union(vec![
+            SchemaBuilder::string().build(),
+            SchemaBuilder::int64(),
+        ]);
 
-        assert!(validate(&schema, &serde_json::json!("hello")).is_ok());
-        assert!(validate(&schema, &serde_json::json!(42)).is_ok());
+        assert!(validate(&schema, &Value::String("hello".to_string())).is_ok());
+        assert!(validate(&schema, &Value::Int64(42)).is_ok());
         assert!(matches!(
-            validate(&schema, &serde_json::json!(true)),
+            validate(&schema, &Value::Bool(true)),
             Err(ValidationError::NoMatchingVariant)
         ));
     }
 
     #[test]
     fn test_validate_optional() {
-        let schema = SchemaBuilder::optional(SchemaBuilder::string());
+        let schema = SchemaBuilder::optional(SchemaBuilder::string().build());
 
-        assert!(validate(&schema, &serde_json::json!("hello")).is_ok());
-        assert!(validate(&schema, &serde_json::json!(null)).is_ok());
+        assert!(validate(&schema, &Value::String("hello".to_string())).is_ok());
+        assert!(validate(&schema, &Value::Null).is_ok());
+    }
+
+    #[test]
+    fn test_validate_numeric_bounds() {
+        let schema = Schema::Int64 {
+            minimum: Some(10),
+            maximum: Some(100),
+        };
+
+        assert!(validate(&schema, &Value::Int64(50)).is_ok());
+        assert!(matches!(
+            validate(&schema, &Value::Int64(5)),
+            Err(ValidationError::BelowMinimum { .. })
+        ));
+        assert!(matches!(
+            validate(&schema, &Value::Int64(150)),
+            Err(ValidationError::AboveMaximum { .. })
+        ));
+    }
+
+    #[test]
+    fn test_validate_string_length() {
+        let schema = SchemaBuilder::string().min_length(2).max_length(10).build();
+
+        assert!(validate(&schema, &Value::String("hello".to_string())).is_ok());
+        assert!(matches!(
+            validate(&schema, &Value::String("a".to_string())),
+            Err(ValidationError::MinLength { .. })
+        ));
+        assert!(matches!(
+            validate(&schema, &Value::String("this is too long".to_string())),
+            Err(ValidationError::MaxLength { .. })
+        ));
     }
 }

@@ -57,7 +57,7 @@ impl RustGenerator {
 
         for code in rendered {
             output.push_str(&code);
-            output.push_str("\n");
+            output.push('\n');
         }
 
         Ok(output)
@@ -100,16 +100,19 @@ impl SchemaContext {
         let mut properties = Vec::new();
 
         if let Schema::Object {
-            properties: props, ..
+            properties: props,
+            required,
+            ..
         } = schema
         {
-            for prop in props {
+            for (prop_name, prop_schema) in props {
+                let is_optional = !required.contains(prop_name);
                 properties.push(PropertyContext {
-                    name: prop.name.clone(),
-                    rust_name: format_ident(&prop.name),
-                    rust_type: schema_to_rust_type(&prop.schema(), &HashMap::new()),
-                    optional: prop.optional,
-                    description: prop.description.clone(),
+                    name: prop_name.clone(),
+                    rust_name: format_ident(prop_name),
+                    rust_type: schema_to_rust_type(prop_schema, &HashMap::new()),
+                    optional: is_optional,
+                    description: None,
                     has_default: false,
                     default_value: None,
                 });
@@ -129,18 +132,18 @@ fn schema_to_rust_type(schema: &Schema, refs: &HashMap<String, String>) -> Strin
     match schema {
         Schema::Null => "()".to_string(),
         Schema::Bool => "bool".to_string(),
-        Schema::Int8 => "i8".to_string(),
-        Schema::Int16 => "i16".to_string(),
-        Schema::Int32 => "i32".to_string(),
-        Schema::Int64 => "i64".to_string(),
-        Schema::UInt8 => "u8".to_string(),
-        Schema::UInt16 => "u16".to_string(),
-        Schema::UInt32 => "u32".to_string(),
-        Schema::UInt64 => "u64".to_string(),
-        Schema::Float32 => "f32".to_string(),
-        Schema::Float64 => "f64".to_string(),
-        Schema::String => "String".to_string(),
-        Schema::Bytes => "Vec<u8>".to_string(),
+        Schema::Int8 { .. } => "i8".to_string(),
+        Schema::Int16 { .. } => "i16".to_string(),
+        Schema::Int32 { .. } => "i32".to_string(),
+        Schema::Int64 { .. } => "i64".to_string(),
+        Schema::UInt8 { .. } => "u8".to_string(),
+        Schema::UInt16 { .. } => "u16".to_string(),
+        Schema::UInt32 { .. } => "u32".to_string(),
+        Schema::UInt64 { .. } => "u64".to_string(),
+        Schema::Float32 { .. } => "f32".to_string(),
+        Schema::Float64 { .. } => "f64".to_string(),
+        Schema::String { .. } => "String".to_string(),
+        Schema::Bytes { .. } => "Vec<u8>".to_string(),
 
         Schema::Array { items, .. } => {
             format!("Vec<{}>", schema_to_rust_type(items, refs))
@@ -242,8 +245,8 @@ mod tests {
         let gen = RustGenerator::new();
         let schema = SchemaBuilder::object()
             .field("id", SchemaBuilder::int64())
-            .field("name", SchemaBuilder::string())
-            .optional_field("email", SchemaBuilder::string())
+            .field("name", SchemaBuilder::string().build())
+            .optional_field("email", SchemaBuilder::string().build())
             .build();
 
         let output = gen.generate("Person", &schema).unwrap();
@@ -274,7 +277,7 @@ mod tests {
             "Person",
             SchemaBuilder::object()
                 .field("id", SchemaBuilder::int64())
-                .field("name", SchemaBuilder::string())
+                .field("name", SchemaBuilder::string().build())
                 .build(),
         );
 
