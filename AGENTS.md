@@ -41,9 +41,13 @@ This project follows the alkimiadev pattern for separating code from development
 
 **Milestone M1:** ✅ Complete - Schema enum with inline constraints, custom Value enum
 
-**Milestone M2:** ✅ Complete - Value operations
+**Milestone M2:** ✅ Complete - Value operations (check, clone, equal, create, cast, delta, patch, clean, fake)
 
-**See:** `/workspace/@alkimiadev/plans/typebox-rs/decisions.md` for architecture decisions.
+**Milestone M2.1:** 🔲 In Progress - Core value operations (hash, pointer, mutate) + validation completeness
+
+**See:** 
+- `/workspace/@alkimiadev/plans/typebox-rs/decisions.md` for architecture decisions.
+- `/workspace/@alkimiadev/plans/typebox-rs/v0.1-implementation-checklist.md` for current work.
 
 **Remaining milestones** (see plans):
 - M3: SafeTensor reader with schema metadata
@@ -65,8 +69,79 @@ Following TypeBox's `value` module structure:
 | `delta` | ✅ | Compute diff (insert/update/delete) |
 | `patch` | ✅ | Apply delta edits |
 | `clean` | ✅ | Remove extraneous properties |
+| `hash` | 🔲 | FNV-1A hash for HashMap/caching |
+| `pointer` | 🔲 | JSON Pointer (RFC6901) access |
+| `mutate` | 🔲 | In-place deep mutation |
 
 Reference: `/workspace/typebox-schema-faker/` for `fake` implementation pattern.
+
+## Testing Standards
+
+**Coverage Target:** 80% line coverage (soft requirement - aim for meaningful coverage over raw numbers)
+
+### Test Categories Required
+
+1. **Happy Path Tests** - Normal usage with valid inputs
+2. **Error Path Tests** - Invalid inputs, boundary conditions, edge cases
+3. **Roundtrip Tests** - Reversible operations (`delta` + `patch`, `to_json` + `from_json`)
+4. **Integration Tests** - End-to-end scenarios, feature combinations
+
+### Test Organization
+
+```rust
+#[cfg(test)]
+mod tests {
+    mod validation {
+        #[test] fn test_valid_input() { /* ... */ }
+        #[test] fn test_invalid_input() { /* ... */ }
+    }
+    mod edge_cases {
+        #[test] fn test_empty() { /* ... */ }
+        #[test] fn test_nan_handling() { /* ... */ }
+    }
+}
+```
+
+### Coverage Commands
+
+```bash
+cargo llvm-cov --all-features          # Run with coverage
+cargo llvm-cov --all-features --html   # Generate HTML report
+```
+
+## Documentation Standards
+
+Every public item must have:
+
+1. **Summary Line** - One sentence starting with a verb
+2. **Examples** - For non-trivial functions
+3. **Errors Section** - `# Errors` listing possible failures
+4. **Panics Section** - `# Panics` if applicable (avoid panics in public API)
+
+```rust
+/// Validates a value against a schema.
+///
+/// # Examples
+/// ```
+/// use typebox::{SchemaBuilder, validate};
+/// let schema = SchemaBuilder::int64();
+/// let value = Value::int64(42);
+/// assert!(validate(&schema, &value).is_ok());
+/// ```
+///
+/// # Errors
+/// Returns `ValidationError` on type mismatch or constraint violation.
+pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> { ... }
+```
+
+### Doc Commands
+
+```bash
+cargo doc --all-features --no-deps     # Build docs
+cargo test --doc --all-features        # Run doc tests
+```
+
+**Note:** We will add `#![warn(missing_docs)]` after filling documentation gaps.
 
 ## Module Structure
 
@@ -78,6 +153,7 @@ src/
 ├── validate.rs        # Validation logic
 ├── layout.rs          # Binary layout calculation
 ├── error.rs           # Error types
+├── registry.rs        # SchemaRegistry for $ref resolution (TODO)
 ├── value/             # Value type and operations
 │   ├── mod.rs         # Value enum
 │   ├── check.rs       # Validation
@@ -88,7 +164,10 @@ src/
 │   ├── cast.rs        # Value coercion
 │   ├── delta.rs       # Diff computation
 │   ├── patch.rs       # Apply diffs
-│   └── clean.rs       # Remove extraneous properties
+│   ├── clean.rs       # Remove extraneous properties
+│   ├── hash.rs        # FNV-1A hashing (TODO)
+│   ├── pointer.rs     # JSON Pointer RFC6901 (TODO)
+│   └── mutate.rs      # In-place mutation (TODO)
 └── codegen/           # Code generation (feature: codegen)
 ```
 
@@ -128,8 +207,8 @@ cargo fmt --check
 
 ## External Resources
 
-- **Implementation Plan:** `/workspace/@alkimiadev/plans/typebox-rs/implementation-plan.md`
-- **Rust Codegen Design:** `/workspace/@alkimiadev/plans/typebox-rs/rust-codegen.md`
+- **Implementation Checklist:** `/workspace/@alkimiadev/plans/typebox-rs/v0.1-implementation-checklist.md`
+- **Pre-Release Review:** `/workspace/@alkimiadev/plans/typebox-rs/pre-release-review.md`
 - **Research:** `/workspace/@alkimiadev/research/typebox-rs/`
 - **TypeBox Legacy:** `/workspace/typebox-legacy/` (reference implementation)
 - **ts2typebox Example:** `/workspace/lbugdev/tmp/lbug_typebox.ts`
