@@ -43,7 +43,7 @@ This project follows the alkimiadev pattern for separating code from development
 
 **Milestone M2:** ✅ Complete - Value operations (check, clone, equal, create, cast, delta, patch, clean, fake)
 
-**Milestone M2.1:** 🔲 In Progress - Core value operations (hash, pointer, mutate) + validation completeness
+**Milestone M2.1:** ✅ Complete - Core value operations (hash, pointer, mutate) + SchemaRegistry for $ref
 
 **See:** 
 - `/workspace/@alkimiadev/plans/typebox-rs/decisions.md` for architecture decisions.
@@ -69,9 +69,9 @@ Following TypeBox's `value` module structure:
 | `delta` | ✅ | Compute diff (insert/update/delete) |
 | `patch` | ✅ | Apply delta edits |
 | `clean` | ✅ | Remove extraneous properties |
-| `hash` | 🔲 | FNV-1A hash for HashMap/caching |
-| `pointer` | 🔲 | JSON Pointer (RFC6901) access |
-| `mutate` | 🔲 | In-place deep mutation |
+| `hash` | ✅ | FNV-1A hash for HashMap/caching |
+| `pointer` | ✅ | JSON Pointer (RFC6901) access |
+| `mutate` | ✅ | In-place deep mutation |
 
 Reference: `/workspace/typebox-schema-faker/` for `fake` implementation pattern.
 
@@ -153,7 +153,7 @@ src/
 ├── validate.rs        # Validation logic
 ├── layout.rs          # Binary layout calculation
 ├── error.rs           # Error types
-├── registry.rs        # SchemaRegistry for $ref resolution (TODO)
+├── registry.rs        # SchemaRegistry for $ref resolution
 ├── value/             # Value type and operations
 │   ├── mod.rs         # Value enum
 │   ├── check.rs       # Validation
@@ -165,11 +165,20 @@ src/
 │   ├── delta.rs       # Diff computation
 │   ├── patch.rs       # Apply diffs
 │   ├── clean.rs       # Remove extraneous properties
-│   ├── hash.rs        # FNV-1A hashing (TODO)
-│   ├── pointer.rs     # JSON Pointer RFC6901 (TODO)
-│   └── mutate.rs      # In-place mutation (TODO)
+│   ├── hash.rs        # FNV-1A hashing
+│   ├── pointer.rs     # JSON Pointer RFC6901
+│   └── mutate.rs      # In-place mutation
 └── codegen/           # Code generation (feature: codegen)
 ```
+
+## Session Management
+
+For long implementation sessions, consider using **compaction** at natural breakpoints:
+- After completing a major feature or milestone
+- Before starting a new phase of work
+- When context is getting diluted
+
+Compaction creates a focused summary of progress and starts a fresh session, which helps maintain clarity on complex multi-step implementations.
 
 ## Build & Test Commands
 
