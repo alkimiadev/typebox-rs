@@ -12,6 +12,7 @@ pub mod delta;
 pub mod equal;
 pub mod hash;
 pub mod patch;
+pub mod pointer;
 
 #[cfg(feature = "fake")]
 pub mod fake;
@@ -30,6 +31,7 @@ pub use delta::{delta, diff_summary, Delta, Edit};
 pub use equal::equal;
 pub use hash::hash_fnv1a;
 pub use patch::patch;
+pub use pointer::{delete_pointer, get_pointer, get_pointer_mut, has_pointer, set_pointer};
 
 #[cfg(feature = "fake")]
 pub use fake::{fake, fake_with_context, FakeContext};

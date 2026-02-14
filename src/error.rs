@@ -142,3 +142,15 @@ pub enum CleanError {
     #[error("Cannot clean value: {0}")]
     CannotClean(String),
 }
+
+#[derive(Debug, Error)]
+pub enum PointerError {
+    #[error("Cannot operate on empty pointer (root)")]
+    EmptyPointer,
+
+    #[error("Path not found: {0}")]
+    NotFound(String),
+
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
+}
