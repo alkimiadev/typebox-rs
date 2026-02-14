@@ -163,3 +163,12 @@ pub enum MutateError {
     #[error("Cannot mutate: type mismatch between current and next")]
     TypeMismatch,
 }
+
+#[derive(Debug, Error)]
+pub enum RegistryError {
+    #[error("Schema not found: {0}")]
+    SchemaNotFound(String),
+
+    #[error("Circular reference detected: {0}")]
+    CircularRef(String),
+}

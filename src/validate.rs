@@ -1,8 +1,17 @@
 use crate::error::ValidationError;
+use crate::registry::SchemaRegistry;
 use crate::schema::{LiteralValue, Schema};
 use crate::value::Value;
 
 pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
+    validate_with_registry(schema, value, None)
+}
+
+pub fn validate_with_registry(
+    schema: &Schema,
+    value: &Value,
+    registry: Option<&SchemaRegistry>,
+) -> Result<(), ValidationError> {
     match (schema, value) {
         (Schema::Null, Value::Null) => Ok(()),
 
@@ -174,7 +183,8 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
                 }
             }
             for (i, item) in arr.iter().enumerate() {
-                validate(items, item).map_err(|e| e.with_path(i.to_string()))?;
+                validate_with_registry(items, item, registry)
+                    .map_err(|e| e.with_path(i.to_string()))?;
             }
             Ok(())
         }
@@ -226,9 +236,11 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
 
             for (name, val) in map {
                 if let Some(prop_schema) = properties.get(name) {
-                    validate(prop_schema, val).map_err(|e| e.with_path(name))?;
+                    validate_with_registry(prop_schema, val, registry)
+                        .map_err(|e| e.with_path(name))?;
                 } else if let Some(ref additional) = additional_properties {
-                    validate(additional, val).map_err(|e| e.with_path(name))?;
+                    validate_with_registry(additional, val, registry)
+                        .map_err(|e| e.with_path(name))?;
                 } else {
                     return Err(ValidationError::UnknownField {
                         field: name.clone(),
@@ -247,14 +259,15 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
                 });
             }
             for (i, (item_schema, item_val)) in items.iter().zip(arr.iter()).enumerate() {
-                validate(item_schema, item_val).map_err(|e| e.with_path(i.to_string()))?;
+                validate_with_registry(item_schema, item_val, registry)
+                    .map_err(|e| e.with_path(i.to_string()))?;
             }
             Ok(())
         }
 
         (Schema::Union { any_of }, value) => {
             for variant in any_of {
-                if validate(variant, value).is_ok() {
+                if validate_with_registry(variant, value, registry).is_ok() {
                     return Ok(());
                 }
             }
@@ -278,12 +291,21 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
             }
         }
 
-        (Schema::Ref { reference }, _value) => Err(ValidationError::TypeMismatch {
-            expected: format!("resolved ref {}", reference),
-            actual: "unresolved".to_string(),
-        }),
+        (Schema::Ref { reference }, value) => {
+            let registry = registry.ok_or_else(|| ValidationError::TypeMismatch {
+                expected: format!("resolved ref {}", reference),
+                actual: "no registry".to_string(),
+            })?;
+            let resolved = registry
+                .resolve(schema)
+                .map_err(|_| ValidationError::TypeMismatch {
+                    expected: format!("resolved ref {}", reference),
+                    actual: "unresolved".to_string(),
+                })?;
+            validate_with_registry(resolved, value, Some(registry))
+        }
 
-        (Schema::Named { schema, .. }, value) => validate(schema, value),
+        (Schema::Named { schema, .. }, value) => validate_with_registry(schema, value, registry),
 
         _ => Err(ValidationError::TypeMismatch {
             expected: schema.kind().to_string(),
@@ -542,5 +564,39 @@ mod tests {
             validate(&schema, &Value::Int64(-1)),
             Err(ValidationError::TypeMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn test_validate_with_registry_ref() {
+        use crate::registry::SchemaRegistry;
+
+        let person = SchemaBuilder::object()
+            .field("name", SchemaBuilder::string().build())
+            .field("age", SchemaBuilder::int64())
+            .named("Person");
+
+        let mut registry = SchemaRegistry::new();
+        registry.register("Person", person);
+
+        let ref_schema = SchemaBuilder::r#ref("Person");
+
+        let valid = Value::object()
+            .field("name", Value::string("Alice"))
+            .field("age", Value::int64(30))
+            .build();
+
+        assert!(validate_with_registry(&ref_schema, &valid, Some(&registry)).is_ok());
+
+        let invalid = Value::object().field("name", Value::string("Bob")).build();
+
+        assert!(validate_with_registry(&ref_schema, &invalid, Some(&registry)).is_err());
+    }
+
+    #[test]
+    fn test_validate_ref_without_registry() {
+        let ref_schema = SchemaBuilder::r#ref("Person");
+        let value = Value::object().build();
+
+        assert!(validate(&ref_schema, &value).is_err());
     }
 }

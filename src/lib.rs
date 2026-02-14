@@ -38,6 +38,7 @@
 pub mod builder;
 pub mod error;
 pub mod layout;
+pub mod registry;
 pub mod schema;
 pub mod validate;
 pub mod value;
@@ -48,8 +49,9 @@ pub mod codegen;
 pub use builder::SchemaBuilder;
 pub use error::{CastError, CleanError, CreateError, Error, PatchError};
 pub use layout::Layout;
+pub use registry::SchemaRegistry;
 pub use schema::{LiteralValue, Schema, StringFormat};
-pub use validate::validate;
+pub use validate::{validate, validate_with_registry};
 pub use value::Value;
 pub use value::{
     cast, check, check_with_errors, clean, clone, create, delta, diff_summary, equal, patch, Delta,
@@ -62,6 +64,6 @@ pub use error::FakeError;
 pub use value::{fake, fake_with_context, FakeContext};
 
 #[cfg(feature = "codegen")]
-pub use codegen::{RustGenerator, SchemaRegistry, TypeScriptGenerator};
+pub use codegen::{RustGenerator, TypeScriptGenerator};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
