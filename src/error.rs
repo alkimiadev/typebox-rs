@@ -154,3 +154,12 @@ pub enum PointerError {
     #[error("Invalid path: {0}")]
     InvalidPath(String),
 }
+
+#[derive(Debug, Error)]
+pub enum MutateError {
+    #[error("Only objects and arrays can be mutated at root level")]
+    NotMutable,
+
+    #[error("Cannot mutate: type mismatch between current and next")]
+    TypeMismatch,
+}

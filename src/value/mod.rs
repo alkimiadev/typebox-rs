@@ -11,6 +11,7 @@ pub mod create;
 pub mod delta;
 pub mod equal;
 pub mod hash;
+pub mod mutate;
 pub mod patch;
 pub mod pointer;
 
@@ -30,6 +31,7 @@ pub use create::create;
 pub use delta::{delta, diff_summary, Delta, Edit};
 pub use equal::equal;
 pub use hash::hash_fnv1a;
+pub use mutate::mutate;
 pub use patch::patch;
 pub use pointer::{delete_pointer, get_pointer, get_pointer_mut, has_pointer, set_pointer};
 
