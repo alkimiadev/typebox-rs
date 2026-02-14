@@ -9,13 +9,10 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
         (Schema::Bool, Value::Bool(_)) => Ok(()),
 
         (Schema::Int8 { minimum, maximum }, Value::Int64(n)) => {
-            let n8 = *n as i8;
-            if *n != i64::from(n8) {
-                return Err(ValidationError::TypeMismatch {
-                    expected: "int8".to_string(),
-                    actual: value_type(value),
-                });
-            }
+            let n8 = i8::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
+                expected: "int8".to_string(),
+                actual: value_type(value),
+            })?;
             check_numeric_bounds(
                 f64::from(n8),
                 minimum.map(f64::from),
@@ -25,13 +22,10 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
         }
 
         (Schema::Int16 { minimum, maximum }, Value::Int64(n)) => {
-            let n16 = *n as i16;
-            if *n != i64::from(n16) {
-                return Err(ValidationError::TypeMismatch {
-                    expected: "int16".to_string(),
-                    actual: value_type(value),
-                });
-            }
+            let n16 = i16::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
+                expected: "int16".to_string(),
+                actual: value_type(value),
+            })?;
             check_numeric_bounds(
                 f64::from(n16),
                 minimum.map(f64::from),
@@ -41,13 +35,10 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
         }
 
         (Schema::Int32 { minimum, maximum }, Value::Int64(n)) => {
-            let n32 = *n as i32;
-            if *n != i64::from(n32) {
-                return Err(ValidationError::TypeMismatch {
-                    expected: "int32".to_string(),
-                    actual: value_type(value),
-                });
-            }
+            let n32 = i32::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
+                expected: "int32".to_string(),
+                actual: value_type(value),
+            })?;
             check_numeric_bounds(
                 f64::from(n32),
                 minimum.map(f64::from),
@@ -66,14 +57,12 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
         }
 
         (Schema::UInt8 { minimum, maximum }, Value::Int64(n)) => {
-            if *n < 0 || *n > i64::from(u8::MAX) {
-                return Err(ValidationError::TypeMismatch {
-                    expected: "uint8".to_string(),
-                    actual: value_type(value),
-                });
-            }
+            let n8 = u8::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
+                expected: "uint8".to_string(),
+                actual: value_type(value),
+            })?;
             check_numeric_bounds(
-                f64::from(*n as u8),
+                f64::from(n8),
                 minimum.map(f64::from),
                 maximum.map(f64::from),
             )?;
@@ -81,14 +70,12 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
         }
 
         (Schema::UInt16 { minimum, maximum }, Value::Int64(n)) => {
-            if *n < 0 || *n > i64::from(u16::MAX) {
-                return Err(ValidationError::TypeMismatch {
-                    expected: "uint16".to_string(),
-                    actual: value_type(value),
-                });
-            }
+            let n16 = u16::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
+                expected: "uint16".to_string(),
+                actual: value_type(value),
+            })?;
             check_numeric_bounds(
-                f64::from(*n as u16),
+                f64::from(n16),
                 minimum.map(f64::from),
                 maximum.map(f64::from),
             )?;
@@ -96,14 +83,12 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
         }
 
         (Schema::UInt32 { minimum, maximum }, Value::Int64(n)) => {
-            if *n < 0 || *n > i64::from(u32::MAX) {
-                return Err(ValidationError::TypeMismatch {
-                    expected: "uint32".to_string(),
-                    actual: value_type(value),
-                });
-            }
+            let n32 = u32::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
+                expected: "uint32".to_string(),
+                actual: value_type(value),
+            })?;
             check_numeric_bounds(
-                f64::from(*n as u32),
+                f64::from(n32),
                 minimum.map(f64::from),
                 maximum.map(f64::from),
             )?;
@@ -111,12 +96,10 @@ pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
         }
 
         (Schema::UInt64 { minimum, maximum }, Value::Int64(n)) => {
-            if *n < 0 {
-                return Err(ValidationError::TypeMismatch {
-                    expected: "uint64".to_string(),
-                    actual: value_type(value),
-                });
-            }
+            u64::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
+                expected: "uint64".to_string(),
+                actual: value_type(value),
+            })?;
             check_numeric_bounds(
                 *n as f64,
                 minimum.map(|m| m as f64),
@@ -504,6 +487,60 @@ mod tests {
         assert!(matches!(
             validate(&schema, &Value::String("this is too long".to_string())),
             Err(ValidationError::MaxLength { .. })
+        ));
+    }
+
+    #[test]
+    fn test_validate_int8_bounds() {
+        let schema = Schema::Int8 {
+            minimum: None,
+            maximum: None,
+        };
+
+        assert!(validate(&schema, &Value::Int64(0)).is_ok());
+        assert!(validate(&schema, &Value::Int64(127)).is_ok());
+        assert!(validate(&schema, &Value::Int64(-128)).is_ok());
+        assert!(matches!(
+            validate(&schema, &Value::Int64(128)),
+            Err(ValidationError::TypeMismatch { .. })
+        ));
+        assert!(matches!(
+            validate(&schema, &Value::Int64(-129)),
+            Err(ValidationError::TypeMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn test_validate_uint8_bounds() {
+        let schema = Schema::UInt8 {
+            minimum: None,
+            maximum: None,
+        };
+
+        assert!(validate(&schema, &Value::Int64(0)).is_ok());
+        assert!(validate(&schema, &Value::Int64(255)).is_ok());
+        assert!(matches!(
+            validate(&schema, &Value::Int64(-1)),
+            Err(ValidationError::TypeMismatch { .. })
+        ));
+        assert!(matches!(
+            validate(&schema, &Value::Int64(256)),
+            Err(ValidationError::TypeMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn test_validate_uint64_negative() {
+        let schema = Schema::UInt64 {
+            minimum: None,
+            maximum: None,
+        };
+
+        assert!(validate(&schema, &Value::Int64(0)).is_ok());
+        assert!(validate(&schema, &Value::Int64(i64::MAX)).is_ok());
+        assert!(matches!(
+            validate(&schema, &Value::Int64(-1)),
+            Err(ValidationError::TypeMismatch { .. })
         ));
     }
 }
