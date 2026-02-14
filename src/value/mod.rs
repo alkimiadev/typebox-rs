@@ -10,6 +10,7 @@ pub mod clone;
 pub mod create;
 pub mod delta;
 pub mod equal;
+pub mod hash;
 pub mod patch;
 
 #[cfg(feature = "fake")]
@@ -27,6 +28,7 @@ pub use clone::clone;
 pub use create::create;
 pub use delta::{delta, diff_summary, Delta, Edit};
 pub use equal::equal;
+pub use hash::hash_fnv1a;
 pub use patch::patch;
 
 #[cfg(feature = "fake")]
@@ -64,6 +66,8 @@ pub enum Value {
     /// Typed array of 8-bit unsigned integers.
     UInt8Array(Vec<u8>),
 }
+
+impl Eq for Value {}
 
 impl Value {
     /// Create a null value.
