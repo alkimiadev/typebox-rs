@@ -31,42 +31,51 @@ use crate::error::RegistryError;
 use crate::schema::{Schema, SchemaKind};
 use std::collections::{HashMap, HashSet};
 
+/// Registry for storing and resolving named schemas.
 #[derive(Clone)]
 pub struct SchemaRegistry {
     schemas: HashMap<String, Schema>,
 }
 
 impl SchemaRegistry {
+    /// Creates a new empty registry.
     pub fn new() -> Self {
         Self {
             schemas: HashMap::new(),
         }
     }
 
+    /// Registers a schema with the given name.
     pub fn register(&mut self, name: impl Into<String>, schema: Schema) {
         self.schemas.insert(name.into(), schema);
     }
 
+    /// Gets a schema by name.
     pub fn get(&self, name: &str) -> Option<&Schema> {
         self.schemas.get(name)
     }
 
+    /// Checks if a schema exists.
     pub fn contains(&self, name: &str) -> bool {
         self.schemas.contains_key(name)
     }
 
+    /// Iterates over all registered schemas.
     pub fn schemas(&self) -> impl Iterator<Item = (&String, &Schema)> {
         self.schemas.iter()
     }
 
+    /// Returns the number of registered schemas.
     pub fn len(&self) -> usize {
         self.schemas.len()
     }
 
+    /// Returns true if no schemas are registered.
     pub fn is_empty(&self) -> bool {
         self.schemas.is_empty()
     }
 
+    /// Resolves a schema, following `$ref` pointers.
     pub fn resolve<'a>(&'a self, schema: &'a Schema) -> Result<&'a Schema, RegistryError> {
         self.resolve_with_visited(schema, &mut HashSet::new())
     }

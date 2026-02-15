@@ -1,3 +1,8 @@
+//! Schema validation for values.
+//!
+//! Validates that a value conforms to a schema's constraints.
+//! Supports recursive schemas via registry and custom format validation.
+
 use crate::error::ValidationError;
 use crate::format::FormatRegistry;
 use crate::registry::SchemaRegistry;
@@ -5,10 +10,12 @@ use crate::schema::{LiteralValue, Schema, SchemaKind, StringFormat};
 use crate::value::{hash_fnv1a, Value};
 use std::collections::HashSet;
 
+/// Validates a value against a schema.
 pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
     validate_full(schema, value, None, None)
 }
 
+/// Validates with a schema registry for `$ref` resolution.
 pub fn validate_with_registry(
     schema: &Schema,
     value: &Value,
@@ -17,6 +24,7 @@ pub fn validate_with_registry(
     validate_full(schema, value, registry, None)
 }
 
+/// Validates with format checking via FormatRegistry.
 pub fn validate_with_format(
     schema: &Schema,
     value: &Value,
@@ -150,6 +158,59 @@ fn validate_full(
         (
             SchemaKind::String {
                 format,
+                pattern: _,
+                min_length,
+                max_length,
+            },
+            Value::String(s),
+        ) if !cfg!(feature = "pattern") => {
+            if let Some(min) = min_length {
+                if s.len() < *min {
+                    return Err(ValidationError::MinLength {
+                        min: *min,
+                        actual: s.len(),
+                    });
+                }
+            }
+            if let Some(max) = max_length {
+                if s.len() > *max {
+                    return Err(ValidationError::MaxLength {
+                        max: *max,
+                        actual: s.len(),
+                    });
+                }
+            }
+            if let Some(fmt) = format {
+                let format_name = match fmt {
+                    StringFormat::Email => "email",
+                    StringFormat::Uuid => "uuid",
+                    StringFormat::Uri => "uri",
+                    StringFormat::DateTime => "date-time",
+                    StringFormat::Date => "date",
+                    StringFormat::Time => "time",
+                    StringFormat::Hostname => "hostname",
+                    StringFormat::Ipv4 => "ipv4",
+                    StringFormat::Ipv6 => "ipv6",
+                    StringFormat::Custom(name) => name.as_str(),
+                };
+                if let Some(fmt_registry) = formats {
+                    if let Some(result) = fmt_registry.validate(format_name, s) {
+                        if !result {
+                            return Err(ValidationError::InvalidFormat {
+                                format: format_name.to_string(),
+                                value: s.clone(),
+                            });
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        #[cfg(feature = "pattern")]
+        (
+            SchemaKind::String {
+                format,
                 pattern,
                 min_length,
                 max_length,
@@ -196,7 +257,6 @@ fn validate_full(
                     }
                 }
             }
-            #[cfg(feature = "pattern")]
             if let Some(pattern_str) = pattern {
                 use regex::Regex;
                 match Regex::new(pattern_str) {

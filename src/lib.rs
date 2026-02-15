@@ -45,6 +45,7 @@ pub mod validate;
 pub mod value;
 
 #[cfg(feature = "codegen")]
+#[doc(hidden)]
 pub mod codegen;
 
 pub use builder::SchemaBuilder;
@@ -68,4 +69,5 @@ pub use value::{fake, fake_with_context, FakeContext};
 #[cfg(feature = "codegen")]
 pub use codegen::{RustGenerator, TypeScriptGenerator};
 
+/// Crate version string.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

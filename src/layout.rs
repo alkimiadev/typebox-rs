@@ -1,11 +1,21 @@
+//! Binary layout calculation for schemas.
+//!
+//! Computes size, alignment, and field offsets for serializing
+//! schema-constrained values as packed binary structs.
+
+/// Binary layout information for a schema.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
+    /// Total size in bytes.
     pub size: usize,
+    /// Alignment requirement in bytes.
     pub align: usize,
+    /// Field offsets for struct members.
     pub offsets: Vec<usize>,
 }
 
 impl Layout {
+    /// Creates a new layout with size and alignment.
     pub fn new(size: usize, align: usize) -> Self {
         Self {
             size,
@@ -14,6 +24,7 @@ impl Layout {
         }
     }
 
+    /// Creates a layout with field offsets.
     pub fn with_offsets(size: usize, align: usize, offsets: Vec<usize>) -> Self {
         Self {
             size,
@@ -24,6 +35,9 @@ impl Layout {
 }
 
 impl crate::schema::Schema {
+    /// Calculates the binary layout for this schema.
+    ///
+    /// Returns size, alignment, and field offsets for packed binary serialization.
     pub fn layout(&self) -> Layout {
         use crate::schema::SchemaKind;
 

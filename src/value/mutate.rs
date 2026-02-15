@@ -7,6 +7,21 @@
 //! # Examples
 //!
 //! ```
+//! use typebox::{Value, value::mutate::mutate};
+//!
+//! let mut current = Value::object()
+//!     .field("name", Value::string("Alice"))
+//!     .field("age", Value::int64(30))
+//!     .build();
+//!
+//! let next = Value::object()
+//!     .field("name", Value::string("Bob"))
+//!     .field("email", Value::string("bob@example.com"))
+//!     .build();
+//!
+//! mutate(&mut current, &next).unwrap();
+//! // current is now mutated in-place with preserved reference
+//! ```
 /// use typebox::{Value, value::mutate::mutate};
 ///
 /// let mut current = Value::object()

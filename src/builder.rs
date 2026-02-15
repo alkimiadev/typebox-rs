@@ -1,17 +1,50 @@
+//! Schema builder API for constructing JSON Schema types.
+//!
+//! Provides a fluent API for building schemas with constraints and metadata.
+//!
+//! # Example
+//!
+//! ```
+//! use typebox::{SchemaBuilder, StringFormat};
+//!
+//! let person = SchemaBuilder::object()
+//!     .field("id", SchemaBuilder::int64())
+//!     .field("name", SchemaBuilder::string().min_length(1).build())
+//!     .optional_field("email", SchemaBuilder::string()
+//!         .format(StringFormat::Email)
+//!         .build())
+//!     .named("Person");
+//! ```
+
 use crate::schema::{LiteralValue, Schema, SchemaKind, StringFormat};
 use indexmap::IndexMap;
 
+/// Builder for constructing JSON Schema types.
+///
+/// Provides static methods for creating all schema types with a fluent API.
+/// Use this as the primary entry point for schema construction.
+///
+/// # Example
+///
+/// ```
+/// use typebox::SchemaBuilder;
+///
+/// let schema = SchemaBuilder::string().max_length(100).build();
+/// ```
 pub struct SchemaBuilder;
 
 impl SchemaBuilder {
+    /// Creates a null type schema.
     pub fn null() -> Schema {
         Schema::new(SchemaKind::Null)
     }
 
+    /// Creates a boolean type schema.
     pub fn bool() -> Schema {
         Schema::new(SchemaKind::Bool)
     }
 
+    /// Creates a signed 8-bit integer schema.
     pub fn int8() -> Schema {
         Schema::new(SchemaKind::Int8 {
             minimum: None,
@@ -19,6 +52,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates a signed 16-bit integer schema.
     pub fn int16() -> Schema {
         Schema::new(SchemaKind::Int16 {
             minimum: None,
@@ -26,6 +60,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates a signed 32-bit integer schema.
     pub fn int32() -> Schema {
         Schema::new(SchemaKind::Int32 {
             minimum: None,
@@ -33,6 +68,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates a signed 64-bit integer schema.
     pub fn int64() -> Schema {
         Schema::new(SchemaKind::Int64 {
             minimum: None,
@@ -40,6 +76,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates an unsigned 8-bit integer schema.
     pub fn uint8() -> Schema {
         Schema::new(SchemaKind::UInt8 {
             minimum: None,
@@ -47,6 +84,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates an unsigned 16-bit integer schema.
     pub fn uint16() -> Schema {
         Schema::new(SchemaKind::UInt16 {
             minimum: None,
@@ -54,6 +92,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates an unsigned 32-bit integer schema.
     pub fn uint32() -> Schema {
         Schema::new(SchemaKind::UInt32 {
             minimum: None,
@@ -61,6 +100,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates an unsigned 64-bit integer schema.
     pub fn uint64() -> Schema {
         Schema::new(SchemaKind::UInt64 {
             minimum: None,
@@ -68,6 +108,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates a 32-bit floating point schema.
     pub fn float32() -> Schema {
         Schema::new(SchemaKind::Float32 {
             minimum: None,
@@ -75,6 +116,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates a 64-bit floating point schema.
     pub fn float64() -> Schema {
         Schema::new(SchemaKind::Float64 {
             minimum: None,
@@ -82,10 +124,24 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates a string schema builder for adding constraints.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use typebox::{SchemaBuilder, StringFormat};
+    ///
+    /// let email = SchemaBuilder::string()
+    ///     .format(StringFormat::Email)
+    ///     .min_length(5)
+    ///     .max_length(100)
+    ///     .build();
+    /// ```
     pub fn string() -> StringBuilder {
         StringBuilder::new()
     }
 
+    /// Creates a bytes schema.
     pub fn bytes() -> Schema {
         Schema::new(SchemaKind::Bytes {
             min_length: None,
@@ -93,46 +149,89 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates an array schema builder with the given item schema.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use typebox::SchemaBuilder;
+    ///
+    /// let numbers = SchemaBuilder::array(SchemaBuilder::int64())
+    ///     .min_items(1)
+    ///     .max_items(100)
+    ///     .build();
+    /// ```
     pub fn array(items: Schema) -> ArrayBuilder {
         ArrayBuilder::new(items)
     }
 
+    /// Creates an object schema builder.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use typebox::SchemaBuilder;
+    ///
+    /// let person = SchemaBuilder::object()
+    ///     .field("name", SchemaBuilder::string().build())
+    ///     .optional_field("age", SchemaBuilder::int64())
+    ///     .build();
+    /// ```
     pub fn object() -> ObjectBuilder {
         ObjectBuilder::new()
     }
 
+    /// Creates a tuple schema with fixed-position items.
     pub fn tuple(items: Vec<Schema>) -> Schema {
         Schema::new(SchemaKind::Tuple { items })
     }
 
+    /// Creates a union schema matching any of the variants.
     pub fn union(variants: Vec<Schema>) -> Schema {
         Schema::new(SchemaKind::Union { any_of: variants })
     }
 
+    /// Wraps a schema to make it optional (union with null).
     pub fn optional(schema: Schema) -> Schema {
         Schema::new(SchemaKind::Union {
             any_of: vec![schema, Schema::new(SchemaKind::Null)],
         })
     }
 
+    /// Creates a literal schema matching an exact value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use typebox::SchemaBuilder;
+    ///
+    /// let status = SchemaBuilder::literal("active");
+    /// let count = SchemaBuilder::literal(42);
+    /// ```
     pub fn literal(value: impl Into<LiteralValue>) -> Schema {
         Schema::new(SchemaKind::Literal {
             value: value.into(),
         })
     }
 
+    /// Creates an enum schema from string values.
     pub fn enum_values(values: Vec<&str>) -> Schema {
         Schema::new(SchemaKind::Enum {
             values: values.iter().map(|s| s.to_string()).collect(),
         })
     }
 
+    /// Creates a reference to a schema by name.
+    ///
+    /// Used with [`SchemaRegistry`](crate::SchemaRegistry) for resolving
+    /// shared or recursive schemas.
     pub fn r#ref(name: &str) -> Schema {
         Schema::new(SchemaKind::Ref {
             reference: format!("#/definitions/{}", name),
         })
     }
 
+    /// Wraps a schema with a name for code generation.
     pub fn named(name: &str, schema: Schema) -> Schema {
         Schema::new(SchemaKind::Named {
             name: name.to_string(),
@@ -140,6 +239,7 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates a function type schema.
     pub fn function(parameters: Vec<Schema>, returns: Schema) -> Schema {
         Schema::new(SchemaKind::Function {
             parameters,
@@ -147,26 +247,50 @@ impl SchemaBuilder {
         })
     }
 
+    /// Creates a void type (no value).
     pub fn void() -> Schema {
         Schema::new(SchemaKind::Void)
     }
 
+    /// Creates a never type (uninhabitable).
     pub fn never() -> Schema {
         Schema::new(SchemaKind::Never)
     }
 
+    /// Creates an any type (accepts any value).
     pub fn any() -> Schema {
         Schema::new(SchemaKind::Any)
     }
 
+    /// Creates an unknown type (requires type checking).
     pub fn unknown() -> Schema {
         Schema::new(SchemaKind::Unknown)
     }
 
+    /// Creates an undefined type.
     pub fn undefined() -> Schema {
         Schema::new(SchemaKind::Undefined)
     }
 
+    /// Creates a recursive type schema.
+    ///
+    /// The callback receives a reference schema that can be used for self-reference.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use typebox::SchemaBuilder;
+    ///
+    /// let json_tree = SchemaBuilder::recursive("JsonTree", |this| {
+    ///     SchemaBuilder::union(vec![
+    ///         SchemaBuilder::null(),
+    ///         SchemaBuilder::bool(),
+    ///         SchemaBuilder::int64(),
+    ///         SchemaBuilder::string().build(),
+    ///         SchemaBuilder::array(this.clone()).build(),
+    ///     ])
+    /// });
+    /// ```
     pub fn recursive<F>(id: &str, callback: F) -> Schema
     where
         F: FnOnce(Schema) -> Schema,
@@ -181,6 +305,9 @@ impl SchemaBuilder {
         .with_id(id)
     }
 
+    /// Creates an intersection schema requiring all schemas to match.
+    ///
+    /// Equivalent to JSON Schema's `allOf` constraint.
     pub fn intersect(schemas: Vec<Schema>) -> Schema {
         Schema::new(SchemaKind::Intersect { all_of: schemas })
     }
@@ -222,6 +349,7 @@ impl From<bool> for LiteralValue {
     }
 }
 
+/// Builder for string schemas with constraints.
 pub struct StringBuilder {
     format: Option<StringFormat>,
     pattern: Option<String>,
@@ -230,6 +358,7 @@ pub struct StringBuilder {
 }
 
 impl StringBuilder {
+    /// Creates a new string builder with no constraints.
     pub fn new() -> Self {
         Self {
             format: None,
@@ -239,26 +368,31 @@ impl StringBuilder {
         }
     }
 
+    /// Sets the string format constraint.
     pub fn format(mut self, format: StringFormat) -> Self {
         self.format = Some(format);
         self
     }
 
+    /// Sets a regex pattern constraint (requires `pattern` feature).
     pub fn pattern(mut self, pattern: &str) -> Self {
         self.pattern = Some(pattern.to_string());
         self
     }
 
+    /// Sets the minimum string length.
     pub fn min_length(mut self, min: usize) -> Self {
         self.min_length = Some(min);
         self
     }
 
+    /// Sets the maximum string length.
     pub fn max_length(mut self, max: usize) -> Self {
         self.max_length = Some(max);
         self
     }
 
+    /// Builds the string schema.
     pub fn build(self) -> Schema {
         Schema::new(SchemaKind::String {
             format: self.format,
@@ -275,6 +409,7 @@ impl Default for StringBuilder {
     }
 }
 
+/// Builder for array schemas with constraints.
 pub struct ArrayBuilder {
     items: Schema,
     min_items: Option<usize>,
@@ -283,6 +418,7 @@ pub struct ArrayBuilder {
 }
 
 impl ArrayBuilder {
+    /// Creates a new array builder for the given item schema.
     pub fn new(items: Schema) -> Self {
         Self {
             items,
@@ -292,21 +428,25 @@ impl ArrayBuilder {
         }
     }
 
+    /// Sets the minimum number of items.
     pub fn min_items(mut self, min: usize) -> Self {
         self.min_items = Some(min);
         self
     }
 
+    /// Sets the maximum number of items.
     pub fn max_items(mut self, max: usize) -> Self {
         self.max_items = Some(max);
         self
     }
 
+    /// Requires all items to be unique.
     pub fn unique_items(mut self, unique: bool) -> Self {
         self.unique_items = Some(unique);
         self
     }
 
+    /// Builds the array schema.
     pub fn build(self) -> Schema {
         Schema::new(SchemaKind::Array {
             items: Box::new(self.items),
@@ -317,6 +457,7 @@ impl ArrayBuilder {
     }
 }
 
+/// Builder for object schemas with properties.
 pub struct ObjectBuilder {
     properties: IndexMap<String, Schema>,
     required: Vec<String>,
@@ -324,6 +465,7 @@ pub struct ObjectBuilder {
 }
 
 impl ObjectBuilder {
+    /// Creates a new object builder with no properties.
     pub fn new() -> Self {
         Self {
             properties: IndexMap::new(),
@@ -332,22 +474,26 @@ impl ObjectBuilder {
         }
     }
 
+    /// Adds a required field.
     pub fn field(mut self, name: &str, schema: Schema) -> Self {
         self.properties.insert(name.to_string(), schema);
         self.required.push(name.to_string());
         self
     }
 
+    /// Adds an optional field.
     pub fn optional_field(mut self, name: &str, schema: Schema) -> Self {
         self.properties.insert(name.to_string(), schema);
         self
     }
 
+    /// Sets the schema for additional properties.
     pub fn additional_properties(mut self, schema: Option<Schema>) -> Self {
         self.additional_properties = schema;
         self
     }
 
+    /// Builds the object schema.
     pub fn build(self) -> Schema {
         Schema::new(SchemaKind::Object {
             properties: self.properties,
@@ -356,6 +502,7 @@ impl ObjectBuilder {
         })
     }
 
+    /// Builds and wraps with a name for code generation.
     pub fn named(self, name: &str) -> Schema {
         Schema::new(SchemaKind::Named {
             name: name.to_string(),

@@ -1,3 +1,5 @@
+//! Schema types for JSON Schema construction.
+
 use crate::value::Value;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -57,133 +59,195 @@ pub enum SchemaKind {
     /// Boolean type.
     Bool,
 
+    /// 8-bit signed integer.
     Int8 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<i8>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<i8>,
     },
+    /// 16-bit signed integer.
     Int16 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<i16>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<i16>,
     },
+    /// 32-bit signed integer.
     Int32 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<i32>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<i32>,
     },
+    /// 64-bit signed integer.
     Int64 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<i64>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<i64>,
     },
+    /// 8-bit unsigned integer.
     UInt8 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<u8>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<u8>,
     },
+    /// 16-bit unsigned integer.
     UInt16 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<u16>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<u16>,
     },
+    /// 32-bit unsigned integer.
     UInt32 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<u32>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<u32>,
     },
+    /// 64-bit unsigned integer.
     UInt64 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<u64>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<u64>,
     },
+    /// 32-bit floating point.
     Float32 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<f32>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<f32>,
     },
+    /// 64-bit floating point.
     Float64 {
+        /// Minimum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         minimum: Option<f64>,
+        /// Maximum value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         maximum: Option<f64>,
     },
 
+    /// String type.
     String {
+        /// Format constraint (e.g., email, uri).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         format: Option<StringFormat>,
+        /// Regex pattern (requires `pattern` feature).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pattern: Option<String>,
+        /// Minimum length.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         min_length: Option<usize>,
+        /// Maximum length.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_length: Option<usize>,
     },
 
+    /// Byte array.
     Bytes {
+        /// Minimum length.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         min_length: Option<usize>,
+        /// Maximum length.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_length: Option<usize>,
     },
 
+    /// Array with homogeneous items.
     Array {
+        /// Item schema.
         items: Box<Schema>,
+        /// Minimum items.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         min_items: Option<usize>,
+        /// Maximum items.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_items: Option<usize>,
+        /// Require unique items.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         unique_items: Option<bool>,
     },
 
+    /// Object with named properties.
     Object {
+        /// Property schemas.
         #[serde(default)]
         properties: IndexMap<String, Schema>,
+        /// Required property names.
         #[serde(default)]
         required: Vec<String>,
+        /// Schema for additional properties.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         additional_properties: Option<Box<Schema>>,
     },
 
+    /// Tuple with fixed-position items.
     Tuple {
+        /// Item schemas.
         items: Vec<Schema>,
     },
 
+    /// Union matching any variant.
     Union {
+        /// Variant schemas.
         any_of: Vec<Schema>,
     },
 
+    /// Literal value.
     Literal {
+        /// The literal value.
         value: LiteralValue,
     },
 
+    /// Enum of string values.
     Enum {
+        /// Allowed values.
         values: Vec<String>,
     },
 
+    /// Reference to a named schema.
     Ref {
+        /// Reference path (e.g., "#/definitions/MyType").
         #[serde(rename = "$ref")]
         reference: String,
     },
 
+    /// Named schema for code generation.
     Named {
+        /// Type name.
         name: String,
+        /// Inner schema.
         schema: Box<Schema>,
     },
 
     /// Function type with parameters and return type.
     Function {
+        /// Parameter schemas.
         parameters: Vec<Schema>,
+        /// Return type schema.
         returns: Box<Schema>,
     },
 
@@ -207,6 +271,7 @@ pub enum SchemaKind {
     /// The `schema` field contains a schema that can reference itself
     /// via `Ref { reference: <id> }` where `<id>` matches this schema's `$id`.
     Recursive {
+        /// Inner schema that may reference itself.
         schema: Box<Schema>,
     },
 
@@ -214,6 +279,7 @@ pub enum SchemaKind {
     ///
     /// Equivalent to JSON Schema's `allOf` constraint.
     Intersect {
+        /// Schemas that must all match.
         all_of: Vec<Schema>,
     },
 }
@@ -222,15 +288,25 @@ pub enum SchemaKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum StringFormat {
+    /// Email address format.
     Email,
+    /// UUID format.
     Uuid,
+    /// URI format.
     Uri,
+    /// DateTime format (ISO 8601).
     DateTime,
+    /// Date format (ISO 8601).
     Date,
+    /// Time format (ISO 8601).
     Time,
+    /// Hostname format.
     Hostname,
+    /// IPv4 address format.
     Ipv4,
+    /// IPv6 address format.
     Ipv6,
+    /// Custom format with arbitrary name.
     Custom(String),
 }
 
@@ -238,10 +314,15 @@ pub enum StringFormat {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LiteralValue {
+    /// String literal.
     String(String),
+    /// Integer literal.
     Number(i64),
+    /// Float literal.
     Float(f64),
+    /// Boolean literal.
     Boolean(bool),
+    /// Null literal.
     Null,
 }
 

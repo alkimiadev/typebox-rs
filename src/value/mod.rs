@@ -16,6 +16,7 @@ pub mod patch;
 pub mod pointer;
 
 #[cfg(feature = "fake")]
+#[doc(hidden)]
 pub mod fake;
 
 use crate::error::ParseError;
@@ -90,26 +91,32 @@ impl Value {
         Value::Int64(n)
     }
 
+    /// Create a 64-bit floating point value.
     pub fn float64(f: f64) -> Self {
         Value::Float64(f)
     }
 
+    /// Create a string value.
     pub fn string(s: impl Into<String>) -> Self {
         Value::String(s.into())
     }
 
+    /// Create a byte array value.
     pub fn bytes(b: Vec<u8>) -> Self {
         Value::Bytes(b)
     }
 
+    /// Create an array value.
     pub fn array(items: Vec<Value>) -> Self {
         Value::Array(items)
     }
 
+    /// Create an object builder.
     pub fn object() -> ObjectBuilder {
         ObjectBuilder::new()
     }
 
+    /// Returns the kind name of this value.
     pub fn kind(&self) -> &'static str {
         match self {
             Value::Null => "Null",
@@ -128,10 +135,12 @@ impl Value {
         }
     }
 
+    /// Returns true if this is a null value.
     pub fn is_null(&self) -> bool {
         matches!(self, Value::Null)
     }
 
+    /// Returns the boolean value if this is a Bool.
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             Value::Bool(b) => Some(*b),
@@ -139,6 +148,7 @@ impl Value {
         }
     }
 
+    /// Returns the i64 value if this is an Int64.
     pub fn as_i64(&self) -> Option<i64> {
         match self {
             Value::Int64(n) => Some(*n),
@@ -146,6 +156,7 @@ impl Value {
         }
     }
 
+    /// Returns the f64 value if this is a Float64 or Int64.
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             Value::Float64(f) => Some(*f),
@@ -154,6 +165,7 @@ impl Value {
         }
     }
 
+    /// Returns the string value if this is a String.
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Value::String(s) => Some(s),
@@ -161,6 +173,7 @@ impl Value {
         }
     }
 
+    /// Returns the byte slice if this is Bytes or UInt8Array.
     pub fn as_bytes(&self) -> Option<&[u8]> {
         match self {
             Value::Bytes(b) => Some(b),
@@ -169,6 +182,7 @@ impl Value {
         }
     }
 
+    /// Returns the array if this is an Array.
     pub fn as_array(&self) -> Option<&Vec<Value>> {
         match self {
             Value::Array(arr) => Some(arr),
@@ -176,6 +190,7 @@ impl Value {
         }
     }
 
+    /// Returns the object if this is an Object.
     pub fn as_object(&self) -> Option<&IndexMap<String, Value>> {
         match self {
             Value::Object(map) => Some(map),
@@ -183,6 +198,7 @@ impl Value {
         }
     }
 
+    /// Parses a JSON value according to a schema.
     pub fn from_json(json: serde_json::Value, schema: &Schema) -> Result<Self, ParseError> {
         match (json, &schema.kind) {
             (serde_json::Value::Null, SchemaKind::Null) => Ok(Value::Null),
@@ -313,6 +329,7 @@ impl Value {
         }
     }
 
+    /// Converts this value to a JSON value.
     pub fn to_json(&self) -> serde_json::Value {
         match self {
             Value::Null => serde_json::Value::Null,
@@ -371,6 +388,7 @@ impl Value {
         }
     }
 
+    /// Returns this value as a byte slice, converting typed arrays.
     pub fn as_bytes_ref(&self) -> Cow<'_, [u8]> {
         match self {
             Value::Bytes(b) => Cow::Borrowed(b),
@@ -426,22 +444,26 @@ fn base64_encode(data: &[u8]) -> String {
     STANDARD.encode(data)
 }
 
+/// Builder for constructing object values.
 pub struct ObjectBuilder {
     properties: IndexMap<String, Value>,
 }
 
 impl ObjectBuilder {
+    /// Creates a new object builder.
     pub fn new() -> Self {
         Self {
             properties: IndexMap::new(),
         }
     }
 
+    /// Adds a field to the object.
     pub fn field(mut self, name: &str, value: Value) -> Self {
         self.properties.insert(name.to_string(), value);
         self
     }
 
+    /// Builds the object value.
     pub fn build(self) -> Value {
         Value::Object(self.properties)
     }
@@ -528,5 +550,121 @@ mod tests {
 
         let result = Value::from_json(json, &schema);
         assert!(matches!(result, Err(ParseError::MissingField { .. })));
+    }
+
+    #[test]
+    fn test_from_json_type_mismatch() {
+        let json = serde_json::json!("not a number");
+        let schema = SchemaBuilder::int64();
+        let result = Value::from_json(json, &schema);
+        assert!(matches!(result, Err(ParseError::TypeMismatch { .. })));
+    }
+
+    #[test]
+    fn test_from_json_tuple_length_mismatch() {
+        let json = serde_json::json!([1, 2]);
+        let schema = SchemaBuilder::tuple(vec![
+            SchemaBuilder::int64(),
+            SchemaBuilder::int64(),
+            SchemaBuilder::int64(),
+        ]);
+        let result = Value::from_json(json, &schema);
+        assert!(matches!(result, Err(ParseError::InvalidLength { .. })));
+    }
+
+    #[test]
+    fn test_from_json_union_mismatch() {
+        let json = serde_json::Value::Null;
+        let schema = SchemaBuilder::union(vec![
+            SchemaBuilder::int64(),
+            SchemaBuilder::string().build(),
+        ]);
+        let result = Value::from_json(json, &schema);
+        assert!(matches!(result, Err(ParseError::TypeMismatch { .. })));
+    }
+
+    #[test]
+    fn test_from_json_literal_mismatch() {
+        let json = serde_json::json!("wrong");
+        let schema = SchemaBuilder::literal("correct");
+        let result = Value::from_json(json, &schema);
+        assert!(matches!(result, Err(ParseError::LiteralMismatch)));
+    }
+
+    #[test]
+    fn test_to_json_typed_arrays() {
+        let float32 = Value::Float32Array(vec![1.0, 2.0, 3.0]);
+        let float64 = Value::Float64Array(vec![1.0, 2.0, 3.0]);
+        let int32 = Value::Int32Array(vec![1, 2, 3]);
+        let int64 = Value::Int64Array(vec![1, 2, 3]);
+        let uint8 = Value::UInt8Array(vec![1, 2, 3]);
+        let bytes = Value::Bytes(vec![1, 2, 3]);
+
+        assert!(float32.to_json().is_array());
+        assert!(float64.to_json().is_array());
+        assert!(int32.to_json().is_array());
+        assert!(int64.to_json().is_array());
+        assert!(uint8.to_json().is_string());
+        assert!(bytes.to_json().is_string());
+    }
+
+    #[test]
+    fn test_as_bytes_ref_conversions() {
+        let bytes = Value::Bytes(vec![1, 2, 3]);
+        let uint8 = Value::UInt8Array(vec![1, 2, 3]);
+        let string = Value::String("abc".to_string());
+        let int32 = Value::Int32Array(vec![1, 2, 3]);
+        let int64 = Value::Int64Array(vec![1, 2, 3]);
+        let float32 = Value::Float32Array(vec![1.0, 2.0, 3.0]);
+        let float64 = Value::Float64Array(vec![1.0, 2.0, 3.0]);
+
+        assert_eq!(bytes.as_bytes_ref().len(), 3);
+        assert_eq!(uint8.as_bytes_ref().len(), 3);
+        assert_eq!(string.as_bytes_ref().len(), 3);
+        assert_eq!(int32.as_bytes_ref().len(), 12);
+        assert_eq!(int64.as_bytes_ref().len(), 24);
+        assert_eq!(float32.as_bytes_ref().len(), 12);
+        assert_eq!(float64.as_bytes_ref().len(), 24);
+    }
+
+    #[test]
+    fn test_value_kind() {
+        assert_eq!(Value::Null.kind(), "Null");
+        assert_eq!(Value::Bool(true).kind(), "Bool");
+        assert_eq!(Value::Int64(42).kind(), "Int64");
+        assert_eq!(Value::Float64(3.14).kind(), "Float64");
+        assert_eq!(Value::String("test".to_string()).kind(), "String");
+        assert_eq!(Value::Bytes(vec![]).kind(), "Bytes");
+        assert_eq!(Value::Array(vec![]).kind(), "Array");
+        assert_eq!(Value::Object(IndexMap::new()).kind(), "Object");
+    }
+
+    #[test]
+    fn test_value_accessors() {
+        assert!(Value::Null.is_null());
+        assert!(!Value::Bool(true).is_null());
+
+        assert_eq!(Value::Bool(true).as_bool(), Some(true));
+        assert_eq!(Value::Int64(42).as_bool(), None);
+
+        assert_eq!(Value::Int64(42).as_i64(), Some(42));
+        assert_eq!(Value::Bool(true).as_i64(), None);
+
+        assert_eq!(Value::Float64(3.14).as_f64(), Some(3.14));
+        assert_eq!(Value::Int64(42).as_f64(), Some(42.0));
+        assert_eq!(Value::Bool(true).as_f64(), None);
+
+        assert_eq!(Value::String("test".to_string()).as_str(), Some("test"));
+        assert_eq!(Value::Int64(42).as_str(), None);
+
+        assert_eq!(Value::Bytes(vec![1, 2, 3]).as_bytes(), Some(&[1, 2, 3][..]));
+        assert_eq!(
+            Value::UInt8Array(vec![1, 2, 3]).as_bytes(),
+            Some(&[1, 2, 3][..])
+        );
+        assert_eq!(Value::Int64(42).as_bytes(), None);
+
+        assert!(Value::Array(vec![]).as_array().is_some());
+        assert!(Value::Object(IndexMap::new()).as_object().is_some());
     }
 }

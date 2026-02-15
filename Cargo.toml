@@ -6,8 +6,10 @@ license = "MIT"
 authors = ["alkimiadev"]
 description = "JSON Schema type construction with validation, code generation, and binary layout"
 repository = "https://github.com/alkimiadev/typebox-rs"
+documentation = "https://docs.rs/typebox"
 keywords = ["json-schema", "validation", "codegen", "typescript", "ffi"]
 categories = ["data-structures", "development-tools::ffi", "encoding"]
+readme = "README.md"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

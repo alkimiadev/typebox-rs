@@ -7,11 +7,24 @@ use indexmap::IndexMap;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Edit {
     /// Insert a new value at the path.
-    Insert { path: String, value: Value },
+    Insert {
+        /// JSON pointer path.
+        path: String,
+        /// Value to insert.
+        value: Value,
+    },
     /// Update the value at the path.
-    Update { path: String, value: Value },
+    Update {
+        /// JSON pointer path.
+        path: String,
+        /// New value.
+        value: Value,
+    },
     /// Delete the value at the path.
-    Delete { path: String },
+    Delete {
+        /// JSON pointer path.
+        path: String,
+    },
 }
 
 /// A sequence of edit operations.
@@ -139,6 +152,7 @@ fn values_equal(a: &Value, b: &Value) -> bool {
     a == b
 }
 
+/// Returns a human-readable summary of delta edits.
 pub fn diff_summary(edits: &[Edit]) -> String {
     let inserts = edits
         .iter()

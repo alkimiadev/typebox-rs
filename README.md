@@ -1,6 +1,11 @@
 # typebox-rs
 
+[![crates.io](https://img.shields.io/crates/v/typebox.svg)](https://crates.io/crates/typebox)
+[![docs.rs](https://img.shields.io/docsrs/typebox)](https://docs.rs/typebox)
+
 JSON Schema type construction with validation, code generation, and binary layout. Inspired by [TypeBox](https://github.com/sinclairzx81/typebox).
+
+**[Documentation](https://docs.rs/typebox)** | **[Crate](https://crates.io/crates/typebox)** | **[Repository](https://github.com/alkimiadev/typebox-rs)**
 
 ## Example
 
@@ -48,6 +53,7 @@ typebox = "0.1"
 |------|-------------|
 | `codegen` | Generate Rust/TypeScript code from schemas |
 | `fake` | Generate random test data (`fake` + `rand` crates) |
+| `pattern` | Regex pattern validation for strings |
 | `safetensor` | SafeTensor file reading support |
 | `ffi` | C-compatible FFI types |
 
