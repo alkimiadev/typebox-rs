@@ -1,5 +1,5 @@
 use crate::codegen::SchemaRegistry;
-use crate::schema::{LiteralValue, Schema};
+use crate::schema::{LiteralValue, Schema, SchemaKind};
 use handlebars::Handlebars;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -30,16 +30,16 @@ impl TypeScriptGenerator {
     pub fn generate(&self, name: &str, schema: &Schema) -> Result<String, crate::Error> {
         let context = SchemaContext::from_schema(name, schema);
 
-        match schema {
-            Schema::Enum { values } => {
+        match &schema.kind {
+            SchemaKind::Enum { values } => {
                 let ctx = EnumContext {
                     name: name.to_string(),
                     values: values.clone(),
                 };
                 Ok(self.registry.render("enum", &ctx)?)
             }
-            Schema::Object { .. } => Ok(self.registry.render("interface", &context)?),
-            Schema::Union { .. } => {
+            SchemaKind::Object { .. } => Ok(self.registry.render("interface", &context)?),
+            SchemaKind::Union { .. } => {
                 let ts_type = schema_to_ts_type(schema, &HashMap::new());
                 let ctx = TypeContext {
                     name: name.to_string(),
@@ -47,7 +47,7 @@ impl TypeScriptGenerator {
                 };
                 Ok(self.registry.render("type", &ctx)?)
             }
-            Schema::Named { schema, .. } => self.generate(name, schema),
+            SchemaKind::Named { schema, .. } => self.generate(name, schema),
             _ => {
                 let ts_type = schema_to_ts_type(schema, &HashMap::new());
                 let ctx = TypeContext {
@@ -116,11 +116,11 @@ impl SchemaContext {
     fn from_schema(name: &str, schema: &Schema) -> Self {
         let mut properties = Vec::new();
 
-        if let Schema::Object {
+        if let SchemaKind::Object {
             properties: props,
             required,
             ..
-        } = schema
+        } = &schema.kind
         {
             for (prop_name, prop_schema) in props {
                 let is_optional = !required.contains(prop_name);
@@ -135,7 +135,7 @@ impl SchemaContext {
 
         Self {
             name: name.to_string(),
-            description: None,
+            description: schema.description.clone(),
             properties,
             type_refs: HashMap::new(),
         }
@@ -143,39 +143,39 @@ impl SchemaContext {
 }
 
 fn schema_to_ts_type(schema: &Schema, refs: &HashMap<String, String>) -> String {
-    match schema {
-        Schema::Null => "null".to_string(),
-        Schema::Bool => "boolean".to_string(),
-        Schema::Int8 { .. }
-        | Schema::Int16 { .. }
-        | Schema::Int32 { .. }
-        | Schema::Int64 { .. } => "number".to_string(),
-        Schema::UInt8 { .. }
-        | Schema::UInt16 { .. }
-        | Schema::UInt32 { .. }
-        | Schema::UInt64 { .. } => "number".to_string(),
-        Schema::Float32 { .. } | Schema::Float64 { .. } => "number".to_string(),
-        Schema::String { .. } => "string".to_string(),
-        Schema::Bytes { .. } => "Uint8Array".to_string(),
+    match &schema.kind {
+        SchemaKind::Null => "null".to_string(),
+        SchemaKind::Bool => "boolean".to_string(),
+        SchemaKind::Int8 { .. }
+        | SchemaKind::Int16 { .. }
+        | SchemaKind::Int32 { .. }
+        | SchemaKind::Int64 { .. } => "number".to_string(),
+        SchemaKind::UInt8 { .. }
+        | SchemaKind::UInt16 { .. }
+        | SchemaKind::UInt32 { .. }
+        | SchemaKind::UInt64 { .. } => "number".to_string(),
+        SchemaKind::Float32 { .. } | SchemaKind::Float64 { .. } => "number".to_string(),
+        SchemaKind::String { .. } => "string".to_string(),
+        SchemaKind::Bytes { .. } => "Uint8Array".to_string(),
 
-        Schema::Array { items, .. } => {
+        SchemaKind::Array { items, .. } => {
             format!("Array<{}>", schema_to_ts_type(items, refs))
         }
 
-        Schema::Tuple { items } => {
+        SchemaKind::Tuple { items } => {
             let types: Vec<_> = items.iter().map(|s| schema_to_ts_type(s, refs)).collect();
             format!("[{}]", types.join(", "))
         }
 
-        Schema::Object { .. } => "Record<string, unknown>".to_string(),
+        SchemaKind::Object { .. } => "Record<string, unknown>".to_string(),
 
-        Schema::Union { any_of } => {
+        SchemaKind::Union { any_of } => {
             if any_of.len() == 2 {
-                let is_optional = any_of.iter().any(|s| matches!(s, Schema::Null));
+                let is_optional = any_of.iter().any(|s| matches!(&s.kind, SchemaKind::Null));
                 if is_optional {
                     let non_null: Vec<_> = any_of
                         .iter()
-                        .filter(|s| !matches!(s, Schema::Null))
+                        .filter(|s| !matches!(&s.kind, SchemaKind::Null))
                         .collect();
                     if non_null.len() == 1 {
                         return format!("{} | null", schema_to_ts_type(non_null[0], refs));
@@ -186,7 +186,7 @@ fn schema_to_ts_type(schema: &Schema, refs: &HashMap<String, String>) -> String 
             types.join(" | ")
         }
 
-        Schema::Literal { value } => match value {
+        SchemaKind::Literal { value } => match value {
             LiteralValue::String(s) => format!("'{}'", s),
             LiteralValue::Number(n) => format!("{}", n),
             LiteralValue::Float(f) => format!("{}", f),
@@ -194,16 +194,34 @@ fn schema_to_ts_type(schema: &Schema, refs: &HashMap<String, String>) -> String 
             LiteralValue::Null => "null".to_string(),
         },
 
-        Schema::Enum { .. } => "string".to_string(),
+        SchemaKind::Enum { .. } => "string".to_string(),
 
-        Schema::Ref { reference } => {
+        SchemaKind::Ref { reference } => {
             let name = reference
                 .strip_prefix("#/definitions/")
                 .unwrap_or(reference);
             refs.get(name).cloned().unwrap_or_else(|| name.to_string())
         }
 
-        Schema::Named { name, .. } => name.clone(),
+        SchemaKind::Named { name, .. } => name.clone(),
+
+        SchemaKind::Function {
+            parameters,
+            returns,
+        } => {
+            let params: Vec<_> = parameters
+                .iter()
+                .map(|s| schema_to_ts_type(s, refs))
+                .collect();
+            let ret = schema_to_ts_type(returns, refs);
+            format!("({}) => {}", params.join(", "), ret)
+        }
+
+        SchemaKind::Void => "void".to_string(),
+        SchemaKind::Never => "never".to_string(),
+        SchemaKind::Any => "any".to_string(),
+        SchemaKind::Unknown => "unknown".to_string(),
+        SchemaKind::Undefined => "undefined".to_string(),
     }
 }
 
@@ -223,7 +241,7 @@ const INTERFACE_TEMPLATE: &str = r#"{{#if description}}/** {{description}} */
 const ENUM_TEMPLATE: &str = r#"export type {{name}} = {{#each values}}'{{this}}'{{#unless @last}} | {{/unless}}{{/each}};
 "#;
 
-const TYPE_TEMPLATE: &str = r#"export type {{name}} = {{ts_type}};
+const TYPE_TEMPLATE: &str = r#"export type {{name}} = {{{ts_type}}};
 "#;
 
 #[cfg(test)]
@@ -275,5 +293,18 @@ mod tests {
         let output = gen.generate_module(&registry).unwrap();
         assert!(output.contains("// Auto-generated"));
         assert!(output.contains("export interface Person"));
+    }
+
+    #[test]
+    fn test_generate_function_type() {
+        let gen = TypeScriptGenerator::new();
+        let schema = SchemaBuilder::function(
+            vec![SchemaBuilder::int64(), SchemaBuilder::string().build()],
+            SchemaBuilder::void(),
+        );
+
+        let output = gen.generate("Callback", &schema).unwrap();
+        assert!(output.contains("export type Callback"));
+        assert!(output.contains("=> void"));
     }
 }

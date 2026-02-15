@@ -1,5 +1,5 @@
 use crate::error::FakeError;
-use crate::schema::{LiteralValue, Schema, StringFormat};
+use crate::schema::{LiteralValue, Schema, SchemaKind, StringFormat};
 use crate::value::Value;
 use indexmap::IndexMap;
 
@@ -48,92 +48,92 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
         return Err(FakeError::MaxDepthExceeded);
     }
 
-    match schema {
-        Schema::Null => Ok(Value::Null),
+    match &schema.kind {
+        SchemaKind::Null => Ok(Value::Null),
 
-        Schema::Bool => {
+        SchemaKind::Bool => {
             let val: bool = rand::rng().random_bool(0.5);
             Ok(Value::Bool(val))
         }
 
-        Schema::Int8 { minimum, maximum } => {
+        SchemaKind::Int8 { minimum, maximum } => {
             let min = minimum.unwrap_or(i8::MIN) as i64;
             let max = maximum.unwrap_or(i8::MAX) as i64;
             let val: i64 = rand::rng().random_range(min..=max);
             Ok(Value::Int64(val))
         }
 
-        Schema::Int16 { minimum, maximum } => {
+        SchemaKind::Int16 { minimum, maximum } => {
             let min = minimum.unwrap_or(i16::MIN) as i64;
             let max = maximum.unwrap_or(i16::MAX) as i64;
             let val: i64 = rand::rng().random_range(min..=max);
             Ok(Value::Int64(val))
         }
 
-        Schema::Int32 { minimum, maximum } => {
+        SchemaKind::Int32 { minimum, maximum } => {
             let min = minimum.unwrap_or(i32::MIN) as i64;
             let max = maximum.unwrap_or(i32::MAX) as i64;
             let val: i64 = rand::rng().random_range(min..=max);
             Ok(Value::Int64(val))
         }
 
-        Schema::Int64 { minimum, maximum } => {
+        SchemaKind::Int64 { minimum, maximum } => {
             let min = minimum.unwrap_or(i64::MIN);
             let max = maximum.unwrap_or(i64::MAX);
             let val: i64 = rand::rng().random_range(min..=max);
             Ok(Value::Int64(val))
         }
 
-        Schema::UInt8 { minimum, maximum } => {
+        SchemaKind::UInt8 { minimum, maximum } => {
             let min = minimum.unwrap_or(u8::MIN) as u64;
             let max = maximum.unwrap_or(u8::MAX) as u64;
             let val: u64 = rand::rng().random_range(min..=max);
             Ok(Value::Int64(val as i64))
         }
 
-        Schema::UInt16 { minimum, maximum } => {
+        SchemaKind::UInt16 { minimum, maximum } => {
             let min = minimum.unwrap_or(u16::MIN) as u64;
             let max = maximum.unwrap_or(u16::MAX) as u64;
             let val: u64 = rand::rng().random_range(min..=max);
             Ok(Value::Int64(val as i64))
         }
 
-        Schema::UInt32 { minimum, maximum } => {
+        SchemaKind::UInt32 { minimum, maximum } => {
             let min = minimum.unwrap_or(u32::MIN) as u64;
             let max = maximum.unwrap_or(u32::MAX) as u64;
             let val: u64 = rand::rng().random_range(min..=max);
             Ok(Value::Int64(val as i64))
         }
 
-        Schema::UInt64 { minimum, maximum } => {
+        SchemaKind::UInt64 { minimum, maximum } => {
             let min = minimum.unwrap_or(u64::MIN);
             let max = maximum.unwrap_or(u64::MAX);
             let val: u64 = rand::rng().random_range(min..=max);
             Ok(Value::Int64(val as i64))
         }
 
-        Schema::Float32 { minimum, maximum } => {
+        SchemaKind::Float32 { minimum, maximum } => {
             let min = minimum.unwrap_or(0.0);
             let max = maximum.unwrap_or(1000000.0);
             let val: f32 = rand::rng().random_range(min..=max);
             Ok(Value::Float64(val as f64))
         }
 
-        Schema::Float64 { minimum, maximum } => {
+        SchemaKind::Float64 { minimum, maximum } => {
             let min = minimum.unwrap_or(0.0);
             let max = maximum.unwrap_or(1000000.0);
             let val: f64 = rand::rng().random_range(min..=max);
             Ok(Value::Float64(val))
         }
 
-        Schema::String {
+        SchemaKind::String {
             format,
             min_length,
             max_length,
             ..
         } => fake_string(format.as_ref(), *min_length, *max_length),
 
-        Schema::Bytes {
+        SchemaKind::Bytes {
             min_length,
             max_length,
         } => {
@@ -145,7 +145,7 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
             Ok(Value::Bytes(bytes))
         }
 
-        Schema::Array {
+        SchemaKind::Array {
             items,
             min_items,
             max_items,
@@ -162,7 +162,7 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
             Ok(Value::Array(arr))
         }
 
-        Schema::Object {
+        SchemaKind::Object {
             properties,
             required,
             additional_properties,
@@ -196,7 +196,7 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
             Ok(Value::Object(obj))
         }
 
-        Schema::Tuple { items } => {
+        SchemaKind::Tuple { items } => {
             let child_ctx = ctx.child();
             let mut arr = Vec::with_capacity(items.len());
             for item_schema in items {
@@ -205,7 +205,7 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
             Ok(Value::Array(arr))
         }
 
-        Schema::Union { any_of } => {
+        SchemaKind::Union { any_of } => {
             if any_of.is_empty() {
                 return Ok(Value::Null);
             }
@@ -213,7 +213,7 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
             fake_with_context(&any_of[idx], ctx)
         }
 
-        Schema::Literal { value } => Ok(match value {
+        SchemaKind::Literal { value } => Ok(match value {
             LiteralValue::Null => Value::Null,
             LiteralValue::Boolean(b) => Value::Bool(*b),
             LiteralValue::Number(n) => Value::Int64(*n),
@@ -221,7 +221,7 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
             LiteralValue::String(s) => Value::String(s.clone()),
         }),
 
-        Schema::Enum { values } => {
+        SchemaKind::Enum { values } => {
             if values.is_empty() {
                 return Err(FakeError::UnsupportedSchema("empty enum".to_string()));
             }
@@ -229,12 +229,19 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
             Ok(Value::String(values[idx].clone()))
         }
 
-        Schema::Ref { reference } => Err(FakeError::UnsupportedSchema(format!(
+        SchemaKind::Ref { reference } => Err(FakeError::UnsupportedSchema(format!(
             "unresolved ref: {}",
             reference
         ))),
 
-        Schema::Named { schema, .. } => fake_with_context(schema, ctx),
+        SchemaKind::Named { schema, .. } => fake_with_context(schema, ctx),
+
+        SchemaKind::Function { .. } => Ok(Value::Null),
+        SchemaKind::Void => Ok(Value::Null),
+        SchemaKind::Never => Err(FakeError::UnsupportedSchema("never type".to_string())),
+        SchemaKind::Any => Ok(Value::Null),
+        SchemaKind::Unknown => Ok(Value::Null),
+        SchemaKind::Undefined => Ok(Value::Null),
     }
 }
 
@@ -315,12 +322,13 @@ fn fake_string(
 mod tests {
     use super::*;
     use crate::builder::SchemaBuilder;
+    use crate::schema::Schema;
 
     #[test]
     fn test_fake_primitives() {
-        assert!(fake(&Schema::Null).unwrap().is_null());
+        assert!(fake(&Schema::new(SchemaKind::Null)).unwrap().is_null());
 
-        let bool_val = fake(&Schema::Bool).unwrap();
+        let bool_val = fake(&Schema::new(SchemaKind::Bool)).unwrap();
         assert!(matches!(bool_val, Value::Bool(_)));
 
         let int_val = fake(&SchemaBuilder::int64()).unwrap();
@@ -357,10 +365,10 @@ mod tests {
 
     #[test]
     fn test_fake_numeric_bounds() {
-        let schema = Schema::Int64 {
+        let schema = Schema::new(SchemaKind::Int64 {
             minimum: Some(10),
             maximum: Some(20),
-        };
+        });
         for _ in 0..10 {
             let val = fake(&schema).unwrap();
             if let Value::Int64(n) = val {
@@ -415,9 +423,9 @@ mod tests {
 
     #[test]
     fn test_fake_enum() {
-        let schema = Schema::Enum {
+        let schema = Schema::new(SchemaKind::Enum {
             values: vec!["one".to_string(), "two".to_string(), "three".to_string()],
-        };
+        });
 
         for _ in 0..10 {
             let val = fake(&schema).unwrap();
@@ -431,9 +439,9 @@ mod tests {
 
     #[test]
     fn test_fake_literal() {
-        let schema = Schema::Literal {
+        let schema = Schema::new(SchemaKind::Literal {
             value: LiteralValue::String("hello".to_string()),
-        };
+        });
         assert_eq!(fake(&schema).unwrap(), Value::String("hello".to_string()));
     }
 

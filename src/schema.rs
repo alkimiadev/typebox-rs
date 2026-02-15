@@ -1,12 +1,57 @@
+use crate::value::Value;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-/// JSON Schema type definition.
+/// JSON Schema type definition with metadata support.
 ///
 /// Use [`SchemaBuilder`](crate::SchemaBuilder) for a fluent API to construct schemas.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Schema {
+    /// The type definition.
+    #[serde(flatten)]
+    pub kind: SchemaKind,
+
+    /// JSON Schema $id field for schema identification.
+    #[serde(rename = "$id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+
+    /// JSON Schema $schema field to specify the schema version.
+    #[serde(rename = "$schema", skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<String>,
+
+    /// Human-readable title for the schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+
+    /// Description of the schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+
+    /// Default value for the schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default: Option<Value>,
+
+    /// Example values matching this schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub examples: Option<Vec<Value>>,
+
+    /// Mark as read-only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_only: Option<bool>,
+
+    /// Mark as write-only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub write_only: Option<bool>,
+
+    /// Mark as deprecated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deprecated: Option<bool>,
+}
+
+/// Schema type variants.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-pub enum Schema {
+pub enum SchemaKind {
     /// Null type.
     Null,
     /// Boolean type.
@@ -135,8 +180,30 @@ pub enum Schema {
         name: String,
         schema: Box<Schema>,
     },
+
+    /// Function type with parameters and return type.
+    Function {
+        parameters: Vec<Schema>,
+        returns: Box<Schema>,
+    },
+
+    /// Void type - represents no value (function return).
+    Void,
+
+    /// Never type - uninhabitable type for exhaustive matching.
+    Never,
+
+    /// Any type - escape hatch, validates any value.
+    Any,
+
+    /// Unknown type - like Any but semantically requires checking.
+    Unknown,
+
+    /// Undefined type - for TypeScript optional unions.
+    Undefined,
 }
 
+/// String format constraints.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum StringFormat {
@@ -152,6 +219,7 @@ pub enum StringFormat {
     Custom(String),
 }
 
+/// Literal value types.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LiteralValue {
@@ -163,37 +231,80 @@ pub enum LiteralValue {
 }
 
 impl Schema {
-    pub fn kind(&self) -> &'static str {
-        match self {
-            Schema::Null => "Null",
-            Schema::Bool => "Bool",
-            Schema::Int8 { .. } => "Int8",
-            Schema::Int16 { .. } => "Int16",
-            Schema::Int32 { .. } => "Int32",
-            Schema::Int64 { .. } => "Int64",
-            Schema::UInt8 { .. } => "UInt8",
-            Schema::UInt16 { .. } => "UInt16",
-            Schema::UInt32 { .. } => "UInt32",
-            Schema::UInt64 { .. } => "UInt64",
-            Schema::Float32 { .. } => "Float32",
-            Schema::Float64 { .. } => "Float64",
-            Schema::String { .. } => "String",
-            Schema::Bytes { .. } => "Bytes",
-            Schema::Array { .. } => "Array",
-            Schema::Object { .. } => "Object",
-            Schema::Tuple { .. } => "Tuple",
-            Schema::Union { .. } => "Union",
-            Schema::Literal { .. } => "Literal",
-            Schema::Enum { .. } => "Enum",
-            Schema::Ref { .. } => "Ref",
-            Schema::Named { .. } => "Named",
+    /// Creates a new schema with the given kind and no metadata.
+    pub fn new(kind: SchemaKind) -> Self {
+        Self {
+            kind,
+            id: None,
+            schema_version: None,
+            title: None,
+            description: None,
+            default: None,
+            examples: None,
+            read_only: None,
+            write_only: None,
+            deprecated: None,
         }
     }
 
+    /// Returns the kind name of this schema.
+    pub fn kind(&self) -> &'static str {
+        self.kind.kind_name()
+    }
+
+    /// Sets the $id field.
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
+
+    /// Sets the title field.
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    /// Sets the description field.
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// Sets the default value.
+    pub fn with_default(mut self, default: Value) -> Self {
+        self.default = Some(default);
+        self
+    }
+
+    /// Sets the examples.
+    pub fn with_examples(mut self, examples: Vec<Value>) -> Self {
+        self.examples = Some(examples);
+        self
+    }
+
+    /// Sets the read-only flag.
+    pub fn with_read_only(mut self, read_only: bool) -> Self {
+        self.read_only = Some(read_only);
+        self
+    }
+
+    /// Sets the write-only flag.
+    pub fn with_write_only(mut self, write_only: bool) -> Self {
+        self.write_only = Some(write_only);
+        self
+    }
+
+    /// Sets the deprecated flag.
+    pub fn with_deprecated(mut self, deprecated: bool) -> Self {
+        self.deprecated = Some(deprecated);
+        self
+    }
+
+    /// Checks if this schema is optional within the given parent object.
     pub fn is_optional_in(&self, parent: &Schema) -> bool {
-        if let Schema::Object { required, .. } = parent {
-            match self {
-                Schema::Named { name, .. } => !required.contains(name),
+        if let SchemaKind::Object { required, .. } = &parent.kind {
+            match &self.kind {
+                SchemaKind::Named { name, .. } => !required.contains(name),
                 _ => false,
             }
         } else {
@@ -202,25 +313,67 @@ impl Schema {
     }
 }
 
+impl SchemaKind {
+    /// Returns the kind name for this schema variant.
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            SchemaKind::Null => "Null",
+            SchemaKind::Bool => "Bool",
+            SchemaKind::Int8 { .. } => "Int8",
+            SchemaKind::Int16 { .. } => "Int16",
+            SchemaKind::Int32 { .. } => "Int32",
+            SchemaKind::Int64 { .. } => "Int64",
+            SchemaKind::UInt8 { .. } => "UInt8",
+            SchemaKind::UInt16 { .. } => "UInt16",
+            SchemaKind::UInt32 { .. } => "UInt32",
+            SchemaKind::UInt64 { .. } => "UInt64",
+            SchemaKind::Float32 { .. } => "Float32",
+            SchemaKind::Float64 { .. } => "Float64",
+            SchemaKind::String { .. } => "String",
+            SchemaKind::Bytes { .. } => "Bytes",
+            SchemaKind::Array { .. } => "Array",
+            SchemaKind::Object { .. } => "Object",
+            SchemaKind::Tuple { .. } => "Tuple",
+            SchemaKind::Union { .. } => "Union",
+            SchemaKind::Literal { .. } => "Literal",
+            SchemaKind::Enum { .. } => "Enum",
+            SchemaKind::Ref { .. } => "Ref",
+            SchemaKind::Named { .. } => "Named",
+            SchemaKind::Function { .. } => "Function",
+            SchemaKind::Void => "Void",
+            SchemaKind::Never => "Never",
+            SchemaKind::Any => "Any",
+            SchemaKind::Unknown => "Unknown",
+            SchemaKind::Undefined => "Undefined",
+        }
+    }
+}
+
 impl std::fmt::Display for Schema {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl std::fmt::Display for SchemaKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Schema::Null => write!(f, "null"),
-            Schema::Bool => write!(f, "boolean"),
-            Schema::Int8 { .. } => write!(f, "int8"),
-            Schema::Int16 { .. } => write!(f, "int16"),
-            Schema::Int32 { .. } => write!(f, "int32"),
-            Schema::Int64 { .. } => write!(f, "int64"),
-            Schema::UInt8 { .. } => write!(f, "uint8"),
-            Schema::UInt16 { .. } => write!(f, "uint16"),
-            Schema::UInt32 { .. } => write!(f, "uint32"),
-            Schema::UInt64 { .. } => write!(f, "uint64"),
-            Schema::Float32 { .. } => write!(f, "float32"),
-            Schema::Float64 { .. } => write!(f, "float64"),
-            Schema::String { .. } => write!(f, "string"),
-            Schema::Bytes { .. } => write!(f, "bytes"),
-            Schema::Array { items, .. } => write!(f, "Array<{}>", items),
-            Schema::Object {
+            SchemaKind::Null => write!(f, "null"),
+            SchemaKind::Bool => write!(f, "boolean"),
+            SchemaKind::Int8 { .. } => write!(f, "int8"),
+            SchemaKind::Int16 { .. } => write!(f, "int16"),
+            SchemaKind::Int32 { .. } => write!(f, "int32"),
+            SchemaKind::Int64 { .. } => write!(f, "int64"),
+            SchemaKind::UInt8 { .. } => write!(f, "uint8"),
+            SchemaKind::UInt16 { .. } => write!(f, "uint16"),
+            SchemaKind::UInt32 { .. } => write!(f, "uint32"),
+            SchemaKind::UInt64 { .. } => write!(f, "uint64"),
+            SchemaKind::Float32 { .. } => write!(f, "float32"),
+            SchemaKind::Float64 { .. } => write!(f, "float64"),
+            SchemaKind::String { .. } => write!(f, "string"),
+            SchemaKind::Bytes { .. } => write!(f, "bytes"),
+            SchemaKind::Array { items, .. } => write!(f, "Array<{}>", items),
+            SchemaKind::Object {
                 properties,
                 required,
                 ..
@@ -238,7 +391,7 @@ impl std::fmt::Display for Schema {
                 }
                 write!(f, "}}")
             }
-            Schema::Tuple { items } => {
+            SchemaKind::Tuple { items } => {
                 write!(f, "[")?;
                 for (i, item) in items.iter().enumerate() {
                     if i > 0 {
@@ -248,7 +401,7 @@ impl std::fmt::Display for Schema {
                 }
                 write!(f, "]")
             }
-            Schema::Union { any_of } => {
+            SchemaKind::Union { any_of } => {
                 for (i, variant) in any_of.iter().enumerate() {
                     if i > 0 {
                         write!(f, " | ")?;
@@ -257,14 +410,14 @@ impl std::fmt::Display for Schema {
                 }
                 Ok(())
             }
-            Schema::Literal { value } => match value {
+            SchemaKind::Literal { value } => match value {
                 LiteralValue::String(s) => write!(f, "\"{}\"", s),
                 LiteralValue::Number(n) => write!(f, "{}", n),
                 LiteralValue::Float(fl) => write!(f, "{}", fl),
                 LiteralValue::Boolean(b) => write!(f, "{}", b),
                 LiteralValue::Null => write!(f, "null"),
             },
-            Schema::Enum { values } => {
+            SchemaKind::Enum { values } => {
                 for (i, v) in values.iter().enumerate() {
                     if i > 0 {
                         write!(f, " | ")?;
@@ -273,8 +426,26 @@ impl std::fmt::Display for Schema {
                 }
                 Ok(())
             }
-            Schema::Ref { reference } => write!(f, "{}", reference),
-            Schema::Named { name, schema } => write!(f, "type {} = {}", name, schema),
+            SchemaKind::Ref { reference } => write!(f, "{}", reference),
+            SchemaKind::Named { name, schema } => write!(f, "type {} = {}", name, schema),
+            SchemaKind::Function {
+                parameters,
+                returns,
+            } => {
+                write!(f, "(")?;
+                for (i, param) in parameters.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", param)?;
+                }
+                write!(f, ") => {}", returns)
+            }
+            SchemaKind::Void => write!(f, "void"),
+            SchemaKind::Never => write!(f, "never"),
+            SchemaKind::Any => write!(f, "any"),
+            SchemaKind::Unknown => write!(f, "unknown"),
+            SchemaKind::Undefined => write!(f, "undefined"),
         }
     }
 }
@@ -285,29 +456,30 @@ mod tests {
 
     #[test]
     fn test_schema_serialize() {
-        let mut properties = IndexMap::new();
-        properties.insert(
-            "id".to_string(),
-            Schema::Int64 {
-                minimum: None,
-                maximum: None,
+        let schema = Schema::new(SchemaKind::Object {
+            properties: {
+                let mut props = IndexMap::new();
+                props.insert(
+                    "id".to_string(),
+                    Schema::new(SchemaKind::Int64 {
+                        minimum: None,
+                        maximum: None,
+                    }),
+                );
+                props.insert(
+                    "name".to_string(),
+                    Schema::new(SchemaKind::String {
+                        format: None,
+                        pattern: None,
+                        min_length: Some(1),
+                        max_length: None,
+                    }),
+                );
+                props
             },
-        );
-        properties.insert(
-            "name".to_string(),
-            Schema::String {
-                format: None,
-                pattern: None,
-                min_length: Some(1),
-                max_length: None,
-            },
-        );
-
-        let schema = Schema::Object {
-            properties,
             required: vec!["id".to_string(), "name".to_string()],
             additional_properties: None,
-        };
+        });
 
         let json = serde_json::to_string_pretty(&schema).unwrap();
         assert!(json.contains("\"kind\": \"object\""));
@@ -318,18 +490,78 @@ mod tests {
     fn test_schema_deserialize() {
         let json = r#"{"kind": "object", "properties": {"x": {"kind": "int64", "minimum": null, "maximum": null}}, "required": ["x"]}"#;
         let schema: Schema = serde_json::from_str(json).unwrap();
-        assert!(matches!(schema, Schema::Object { .. }));
+        assert!(matches!(schema.kind, SchemaKind::Object { .. }));
     }
 
     #[test]
     fn test_string_format_serialize() {
-        let schema = Schema::String {
+        let schema = Schema::new(SchemaKind::String {
             format: Some(StringFormat::Email),
             pattern: None,
             min_length: None,
             max_length: None,
-        };
+        });
         let json = serde_json::to_string(&schema).unwrap();
         assert!(json.contains("\"format\":\"email\""));
+    }
+
+    #[test]
+    fn test_schema_with_metadata() {
+        let schema = Schema::new(SchemaKind::String {
+            format: Some(StringFormat::Email),
+            pattern: None,
+            min_length: None,
+            max_length: None,
+        })
+        .with_id("https://example.com/schemas/email")
+        .with_title("Email")
+        .with_description("An email address");
+
+        let json = serde_json::to_string_pretty(&schema).unwrap();
+        assert!(json.contains("\"$id\": \"https://example.com/schemas/email\""));
+        assert!(json.contains("\"title\": \"Email\""));
+        assert!(json.contains("\"description\": \"An email address\""));
+    }
+
+    #[test]
+    fn test_function_type() {
+        let schema = Schema::new(SchemaKind::Function {
+            parameters: vec![Schema::new(SchemaKind::Int64 {
+                minimum: None,
+                maximum: None,
+            })],
+            returns: Box::new(Schema::new(SchemaKind::String {
+                format: None,
+                pattern: None,
+                min_length: None,
+                max_length: None,
+            })),
+        });
+
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("\"kind\":\"function\""));
+        assert!(json.contains("\"parameters\""));
+        assert!(json.contains("\"returns\""));
+    }
+
+    #[test]
+    fn test_void_never_any_unknown_undefined() {
+        assert_eq!(Schema::new(SchemaKind::Void).kind(), "Void");
+        assert_eq!(Schema::new(SchemaKind::Never).kind(), "Never");
+        assert_eq!(Schema::new(SchemaKind::Any).kind(), "Any");
+        assert_eq!(Schema::new(SchemaKind::Unknown).kind(), "Unknown");
+        assert_eq!(Schema::new(SchemaKind::Undefined).kind(), "Undefined");
+    }
+
+    #[test]
+    fn test_schema_display() {
+        assert_eq!(format!("{}", Schema::new(SchemaKind::Void)), "void");
+        assert_eq!(format!("{}", Schema::new(SchemaKind::Never)), "never");
+        assert_eq!(format!("{}", Schema::new(SchemaKind::Any)), "any");
+        assert_eq!(format!("{}", Schema::new(SchemaKind::Unknown)), "unknown");
+        assert_eq!(
+            format!("{}", Schema::new(SchemaKind::Undefined)),
+            "undefined"
+        );
     }
 }

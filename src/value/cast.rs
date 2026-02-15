@@ -1,7 +1,7 @@
 //! Value coercion to match schemas.
 
 use crate::error::CastError;
-use crate::schema::{LiteralValue, Schema};
+use crate::schema::{LiteralValue, Schema, SchemaKind};
 use crate::value::Value;
 use indexmap::IndexMap;
 
@@ -10,20 +10,20 @@ use indexmap::IndexMap;
 /// Performs type conversions (string to int, int to bool, etc.),
 /// clamps numeric values to bounds, and fills in missing object fields.
 pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
-    match (schema, value) {
-        (Schema::Null, Value::Null) => Ok(Value::Null),
-        (Schema::Null, _) => Ok(Value::Null),
+    match (&schema.kind, value) {
+        (SchemaKind::Null, Value::Null) => Ok(Value::Null),
+        (SchemaKind::Null, _) => Ok(Value::Null),
 
-        (Schema::Bool, Value::Bool(b)) => Ok(Value::Bool(*b)),
-        (Schema::Bool, v) => coerce_to_bool(v),
+        (SchemaKind::Bool, Value::Bool(b)) => Ok(Value::Bool(*b)),
+        (SchemaKind::Bool, v) => coerce_to_bool(v),
 
-        (Schema::Int8 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Int8 { minimum, maximum }, Value::Int64(n)) => {
             let val = clamp_i64_to_i8(*n);
             let min = minimum.unwrap_or(i8::MIN);
             let max = maximum.unwrap_or(i8::MAX);
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
-        (Schema::Int8 { minimum, maximum }, v) => {
+        (SchemaKind::Int8 { minimum, maximum }, v) => {
             let n = coerce_to_i64(v)?;
             let val = clamp_i64_to_i8(n);
             let min = minimum.unwrap_or(i8::MIN);
@@ -31,13 +31,13 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
 
-        (Schema::Int16 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Int16 { minimum, maximum }, Value::Int64(n)) => {
             let val = clamp_i64_to_i16(*n);
             let min = minimum.unwrap_or(i16::MIN);
             let max = maximum.unwrap_or(i16::MAX);
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
-        (Schema::Int16 { minimum, maximum }, v) => {
+        (SchemaKind::Int16 { minimum, maximum }, v) => {
             let n = coerce_to_i64(v)?;
             let val = clamp_i64_to_i16(n);
             let min = minimum.unwrap_or(i16::MIN);
@@ -45,13 +45,13 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
 
-        (Schema::Int32 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Int32 { minimum, maximum }, Value::Int64(n)) => {
             let val = clamp_i64_to_i32(*n);
             let min = minimum.unwrap_or(i32::MIN);
             let max = maximum.unwrap_or(i32::MAX);
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
-        (Schema::Int32 { minimum, maximum }, v) => {
+        (SchemaKind::Int32 { minimum, maximum }, v) => {
             let n = coerce_to_i64(v)?;
             let val = clamp_i64_to_i32(n);
             let min = minimum.unwrap_or(i32::MIN);
@@ -59,25 +59,25 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
 
-        (Schema::Int64 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Int64 { minimum, maximum }, Value::Int64(n)) => {
             let min = minimum.unwrap_or(i64::MIN);
             let max = maximum.unwrap_or(i64::MAX);
             Ok(Value::Int64(clamp(*n, min, max)))
         }
-        (Schema::Int64 { minimum, maximum }, v) => {
+        (SchemaKind::Int64 { minimum, maximum }, v) => {
             let n = coerce_to_i64(v)?;
             let min = minimum.unwrap_or(i64::MIN);
             let max = maximum.unwrap_or(i64::MAX);
             Ok(Value::Int64(clamp(n, min, max)))
         }
 
-        (Schema::UInt8 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::UInt8 { minimum, maximum }, Value::Int64(n)) => {
             let val = clamp_i64_to_u8(*n);
             let min = minimum.unwrap_or(u8::MIN);
             let max = maximum.unwrap_or(u8::MAX);
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
-        (Schema::UInt8 { minimum, maximum }, v) => {
+        (SchemaKind::UInt8 { minimum, maximum }, v) => {
             let n = coerce_to_i64(v)?;
             let val = clamp_i64_to_u8(n);
             let min = minimum.unwrap_or(u8::MIN);
@@ -85,13 +85,13 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
 
-        (Schema::UInt16 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::UInt16 { minimum, maximum }, Value::Int64(n)) => {
             let val = clamp_i64_to_u16(*n);
             let min = minimum.unwrap_or(u16::MIN);
             let max = maximum.unwrap_or(u16::MAX);
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
-        (Schema::UInt16 { minimum, maximum }, v) => {
+        (SchemaKind::UInt16 { minimum, maximum }, v) => {
             let n = coerce_to_i64(v)?;
             let val = clamp_i64_to_u16(n);
             let min = minimum.unwrap_or(u16::MIN);
@@ -99,13 +99,13 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
 
-        (Schema::UInt32 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::UInt32 { minimum, maximum }, Value::Int64(n)) => {
             let val = clamp_i64_to_u32(*n);
             let min = minimum.unwrap_or(u32::MIN);
             let max = maximum.unwrap_or(u32::MAX);
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
-        (Schema::UInt32 { minimum, maximum }, v) => {
+        (SchemaKind::UInt32 { minimum, maximum }, v) => {
             let n = coerce_to_i64(v)?;
             let val = clamp_i64_to_u32(n);
             let min = minimum.unwrap_or(u32::MIN);
@@ -113,13 +113,13 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
 
-        (Schema::UInt64 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::UInt64 { minimum, maximum }, Value::Int64(n)) => {
             let val = (*n).max(0);
             let min = minimum.unwrap_or(u64::MIN);
             let max = maximum.unwrap_or(u64::MAX);
             Ok(Value::Int64(clamp(val as u64, min, max) as i64))
         }
-        (Schema::UInt64 { minimum, maximum }, v) => {
+        (SchemaKind::UInt64 { minimum, maximum }, v) => {
             let n = coerce_to_i64(v)?;
             let val = n.max(0) as u64;
             let min = minimum.unwrap_or(u64::MIN);
@@ -127,19 +127,19 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Int64(clamp(val, min, max) as i64))
         }
 
-        (Schema::Float32 { minimum, maximum }, Value::Float64(f)) => {
+        (SchemaKind::Float32 { minimum, maximum }, Value::Float64(f)) => {
             let val = *f as f32;
             let min = minimum.unwrap_or(f32::MIN);
             let max = maximum.unwrap_or(f32::MAX);
             Ok(Value::Float64(clamp_f32(val, min, max) as f64))
         }
-        (Schema::Float32 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Float32 { minimum, maximum }, Value::Int64(n)) => {
             let val = *n as f32;
             let min = minimum.unwrap_or(f32::MIN);
             let max = maximum.unwrap_or(f32::MAX);
             Ok(Value::Float64(clamp_f32(val, min, max) as f64))
         }
-        (Schema::Float32 { minimum, maximum }, v) => {
+        (SchemaKind::Float32 { minimum, maximum }, v) => {
             let f = coerce_to_f64(v)?;
             let val = f as f32;
             let min = minimum.unwrap_or(f32::MIN);
@@ -147,37 +147,37 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Float64(clamp_f32(val, min, max) as f64))
         }
 
-        (Schema::Float64 { minimum, maximum }, Value::Float64(f)) => {
+        (SchemaKind::Float64 { minimum, maximum }, Value::Float64(f)) => {
             let min = minimum.unwrap_or(f64::MIN);
             let max = maximum.unwrap_or(f64::MAX);
             Ok(Value::Float64(clamp_f64(*f, min, max)))
         }
-        (Schema::Float64 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Float64 { minimum, maximum }, Value::Int64(n)) => {
             let val = *n as f64;
             let min = minimum.unwrap_or(f64::MIN);
             let max = maximum.unwrap_or(f64::MAX);
             Ok(Value::Float64(clamp_f64(val, min, max)))
         }
-        (Schema::Float64 { minimum, maximum }, v) => {
+        (SchemaKind::Float64 { minimum, maximum }, v) => {
             let f = coerce_to_f64(v)?;
             let min = minimum.unwrap_or(f64::MIN);
             let max = maximum.unwrap_or(f64::MAX);
             Ok(Value::Float64(clamp_f64(f, min, max)))
         }
 
-        (Schema::String { .. }, Value::String(s)) => Ok(Value::String(s.clone())),
-        (Schema::String { .. }, v) => Ok(Value::String(value_to_string(v))),
+        (SchemaKind::String { .. }, Value::String(s)) => Ok(Value::String(s.clone())),
+        (SchemaKind::String { .. }, v) => Ok(Value::String(value_to_string(v))),
 
-        (Schema::Bytes { .. }, Value::Bytes(b)) => Ok(Value::Bytes(b.clone())),
-        (Schema::Bytes { .. }, Value::UInt8Array(b)) => Ok(Value::Bytes(b.clone())),
-        (Schema::Bytes { .. }, Value::String(s)) => Ok(Value::Bytes(s.as_bytes().to_vec())),
-        (Schema::Bytes { .. }, v) => Err(CastError::CannotCast(format!(
+        (SchemaKind::Bytes { .. }, Value::Bytes(b)) => Ok(Value::Bytes(b.clone())),
+        (SchemaKind::Bytes { .. }, Value::UInt8Array(b)) => Ok(Value::Bytes(b.clone())),
+        (SchemaKind::Bytes { .. }, Value::String(s)) => Ok(Value::Bytes(s.as_bytes().to_vec())),
+        (SchemaKind::Bytes { .. }, v) => Err(CastError::CannotCast(format!(
             "cannot cast {:?} to bytes",
             v.kind()
         ))),
 
         (
-            Schema::Array {
+            SchemaKind::Array {
                 items,
                 min_items,
                 max_items,
@@ -203,7 +203,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Array(result))
         }
         (
-            Schema::Array {
+            SchemaKind::Array {
                 items, min_items, ..
             },
             v,
@@ -220,7 +220,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
         }
 
         (
-            Schema::Object {
+            SchemaKind::Object {
                 properties,
                 required,
                 additional_properties,
@@ -255,7 +255,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Object(result))
         }
         (
-            Schema::Object {
+            SchemaKind::Object {
                 properties,
                 required,
                 ..
@@ -276,7 +276,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Object(result))
         }
 
-        (Schema::Tuple { items }, Value::Array(arr)) => {
+        (SchemaKind::Tuple { items }, Value::Array(arr)) => {
             let mut result = Vec::with_capacity(items.len());
             for (i, item_schema) in items.iter().enumerate() {
                 if let Some(val) = arr.get(i) {
@@ -289,7 +289,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             }
             Ok(Value::Array(result))
         }
-        (Schema::Tuple { items }, _) => {
+        (SchemaKind::Tuple { items }, _) => {
             let mut result = Vec::with_capacity(items.len());
             for item_schema in items {
                 result.push(super::create::create(item_schema).map_err(|e| {
@@ -299,7 +299,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Ok(Value::Array(result))
         }
 
-        (Schema::Union { any_of }, value) => {
+        (SchemaKind::Union { any_of }, value) => {
             for variant in any_of {
                 let casted = cast(variant, value)?;
                 if super::check::check(variant, &casted) {
@@ -312,7 +312,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             Err(CastError::CannotCast("empty union".to_string()))
         }
 
-        (Schema::Literal { value: lit }, val) => {
+        (SchemaKind::Literal { value: lit }, val) => {
             let matches = match (lit, val) {
                 (LiteralValue::Null, Value::Null) => true,
                 (LiteralValue::Boolean(b), Value::Bool(v)) => *b == *v,
@@ -334,7 +334,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             }
         }
 
-        (Schema::Enum { values }, Value::String(s)) => {
+        (SchemaKind::Enum { values }, Value::String(s)) => {
             if values.contains(s) {
                 Ok(Value::String(s.clone()))
             } else if let Some(first) = values.first() {
@@ -343,7 +343,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
                 Err(CastError::CannotCast("empty enum".to_string()))
             }
         }
-        (Schema::Enum { values }, _) => {
+        (SchemaKind::Enum { values }, _) => {
             if let Some(first) = values.first() {
                 Ok(Value::String(first.clone()))
             } else {
@@ -351,12 +351,19 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
             }
         }
 
-        (Schema::Ref { reference }, _) => Err(CastError::CannotCast(format!(
+        (SchemaKind::Ref { reference }, _) => Err(CastError::CannotCast(format!(
             "unresolved ref: {}",
             reference
         ))),
 
-        (Schema::Named { schema, .. }, value) => cast(schema, value),
+        (SchemaKind::Named { schema, .. }, value) => cast(schema, value),
+
+        (SchemaKind::Function { .. }, val) => Ok(val.clone()),
+        (SchemaKind::Void, _) => Ok(Value::Null),
+        (SchemaKind::Never, _) => Err(CastError::CannotCast("never type".to_string())),
+        (SchemaKind::Any, val) => Ok(val.clone()),
+        (SchemaKind::Unknown, val) => Ok(val.clone()),
+        (SchemaKind::Undefined, _) => Ok(Value::Null),
     }
 }
 
@@ -491,43 +498,54 @@ fn clamp_i64_to_u32(n: i64) -> u32 {
 mod tests {
     use super::*;
     use crate::builder::SchemaBuilder;
+    use crate::schema::{Schema, SchemaKind};
 
     #[test]
     fn test_cast_null() {
-        assert_eq!(cast(&Schema::Null, &Value::Null).unwrap(), Value::Null);
-        assert_eq!(cast(&Schema::Null, &Value::Int64(42)).unwrap(), Value::Null);
+        assert_eq!(
+            cast(&Schema::new(SchemaKind::Null), &Value::Null).unwrap(),
+            Value::Null
+        );
+        assert_eq!(
+            cast(&Schema::new(SchemaKind::Null), &Value::Int64(42)).unwrap(),
+            Value::Null
+        );
     }
 
     #[test]
     fn test_cast_bool() {
         assert_eq!(
-            cast(&Schema::Bool, &Value::Bool(true)).unwrap(),
+            cast(&Schema::new(SchemaKind::Bool), &Value::Bool(true)).unwrap(),
             Value::Bool(true)
         );
         assert_eq!(
-            cast(&Schema::Bool, &Value::Int64(1)).unwrap(),
+            cast(&Schema::new(SchemaKind::Bool), &Value::Int64(1)).unwrap(),
             Value::Bool(true)
         );
         assert_eq!(
-            cast(&Schema::Bool, &Value::Int64(0)).unwrap(),
+            cast(&Schema::new(SchemaKind::Bool), &Value::Int64(0)).unwrap(),
             Value::Bool(false)
         );
         assert_eq!(
-            cast(&Schema::Bool, &Value::String("true".to_string())).unwrap(),
+            cast(
+                &Schema::new(SchemaKind::Bool),
+                &Value::String("true".to_string())
+            )
+            .unwrap(),
             Value::Bool(true)
         );
         assert_eq!(
-            cast(&Schema::Bool, &Value::Null).unwrap(),
+            cast(&Schema::new(SchemaKind::Bool), &Value::Null).unwrap(),
             Value::Bool(false)
         );
     }
 
     #[test]
     fn test_cast_int_with_bounds() {
-        let schema = Schema::Int64 {
+        let schema = Schema::new(SchemaKind::Int64 {
             minimum: Some(10),
             maximum: Some(20),
-        };
+        });
         assert_eq!(cast(&schema, &Value::Int64(15)).unwrap(), Value::Int64(15));
         assert_eq!(cast(&schema, &Value::Int64(5)).unwrap(), Value::Int64(10));
         assert_eq!(cast(&schema, &Value::Int64(25)).unwrap(), Value::Int64(20));
@@ -597,9 +615,9 @@ mod tests {
 
     #[test]
     fn test_cast_tuple() {
-        let schema = Schema::Tuple {
+        let schema = Schema::new(SchemaKind::Tuple {
             items: vec![SchemaBuilder::int64(), SchemaBuilder::string().build()],
-        };
+        });
 
         let input = Value::Array(vec![Value::String("42".to_string())]);
         let result = cast(&schema, &input).unwrap();
@@ -630,9 +648,9 @@ mod tests {
 
     #[test]
     fn test_cast_literal() {
-        let schema = Schema::Literal {
+        let schema = Schema::new(SchemaKind::Literal {
             value: LiteralValue::String("hello".to_string()),
-        };
+        });
 
         assert_eq!(
             cast(&schema, &Value::String("hello".to_string())).unwrap(),
@@ -646,9 +664,9 @@ mod tests {
 
     #[test]
     fn test_cast_enum() {
-        let schema = Schema::Enum {
+        let schema = Schema::new(SchemaKind::Enum {
             values: vec!["one".to_string(), "two".to_string()],
-        };
+        });
 
         assert_eq!(
             cast(&schema, &Value::String("one".to_string())).unwrap(),

@@ -1,5 +1,5 @@
 use crate::codegen::SchemaRegistry;
-use crate::schema::{LiteralValue, Schema};
+use crate::schema::{LiteralValue, Schema, SchemaKind};
 use handlebars::Handlebars;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -27,16 +27,16 @@ impl RustGenerator {
     pub fn generate(&self, name: &str, schema: &Schema) -> Result<String, crate::Error> {
         let context = SchemaContext::from_schema(name, schema);
 
-        match schema {
-            Schema::Enum { values } => {
+        match &schema.kind {
+            SchemaKind::Enum { values } => {
                 let ctx = EnumContext {
                     name: name.to_string(),
                     values: values.clone(),
                 };
                 Ok(self.registry.render("enum", &ctx)?)
             }
-            Schema::Object { .. } => Ok(self.registry.render("struct", &context)?),
-            Schema::Named { schema, .. } => self.generate(name, schema),
+            SchemaKind::Object { .. } => Ok(self.registry.render("struct", &context)?),
+            SchemaKind::Named { schema, .. } => self.generate(name, schema),
             _ => {
                 let rust_type = schema_to_rust_type(schema, &HashMap::new());
                 Ok(format!("pub type {} = {};\n", name, rust_type))
@@ -99,11 +99,11 @@ impl SchemaContext {
     fn from_schema(name: &str, schema: &Schema) -> Self {
         let mut properties = Vec::new();
 
-        if let Schema::Object {
+        if let SchemaKind::Object {
             properties: props,
             required,
             ..
-        } = schema
+        } = &schema.kind
         {
             for (prop_name, prop_schema) in props {
                 let is_optional = !required.contains(prop_name);
@@ -121,7 +121,7 @@ impl SchemaContext {
 
         Self {
             name: name.to_string(),
-            description: None,
+            description: schema.description.clone(),
             properties,
             type_refs: HashMap::new(),
         }
@@ -129,40 +129,40 @@ impl SchemaContext {
 }
 
 fn schema_to_rust_type(schema: &Schema, refs: &HashMap<String, String>) -> String {
-    match schema {
-        Schema::Null => "()".to_string(),
-        Schema::Bool => "bool".to_string(),
-        Schema::Int8 { .. } => "i8".to_string(),
-        Schema::Int16 { .. } => "i16".to_string(),
-        Schema::Int32 { .. } => "i32".to_string(),
-        Schema::Int64 { .. } => "i64".to_string(),
-        Schema::UInt8 { .. } => "u8".to_string(),
-        Schema::UInt16 { .. } => "u16".to_string(),
-        Schema::UInt32 { .. } => "u32".to_string(),
-        Schema::UInt64 { .. } => "u64".to_string(),
-        Schema::Float32 { .. } => "f32".to_string(),
-        Schema::Float64 { .. } => "f64".to_string(),
-        Schema::String { .. } => "String".to_string(),
-        Schema::Bytes { .. } => "Vec<u8>".to_string(),
+    match &schema.kind {
+        SchemaKind::Null => "()".to_string(),
+        SchemaKind::Bool => "bool".to_string(),
+        SchemaKind::Int8 { .. } => "i8".to_string(),
+        SchemaKind::Int16 { .. } => "i16".to_string(),
+        SchemaKind::Int32 { .. } => "i32".to_string(),
+        SchemaKind::Int64 { .. } => "i64".to_string(),
+        SchemaKind::UInt8 { .. } => "u8".to_string(),
+        SchemaKind::UInt16 { .. } => "u16".to_string(),
+        SchemaKind::UInt32 { .. } => "u32".to_string(),
+        SchemaKind::UInt64 { .. } => "u64".to_string(),
+        SchemaKind::Float32 { .. } => "f32".to_string(),
+        SchemaKind::Float64 { .. } => "f64".to_string(),
+        SchemaKind::String { .. } => "String".to_string(),
+        SchemaKind::Bytes { .. } => "Vec<u8>".to_string(),
 
-        Schema::Array { items, .. } => {
+        SchemaKind::Array { items, .. } => {
             format!("Vec<{}>", schema_to_rust_type(items, refs))
         }
 
-        Schema::Tuple { items } => {
+        SchemaKind::Tuple { items } => {
             let types: Vec<_> = items.iter().map(|s| schema_to_rust_type(s, refs)).collect();
             format!("({})", types.join(", "))
         }
 
-        Schema::Object { .. } => "serde_json::Value".to_string(),
+        SchemaKind::Object { .. } => "serde_json::Value".to_string(),
 
-        Schema::Union { any_of } => {
+        SchemaKind::Union { any_of } => {
             if any_of.len() == 2 {
-                let is_optional = any_of.iter().any(|s| matches!(s, Schema::Null));
+                let is_optional = any_of.iter().any(|s| matches!(&s.kind, SchemaKind::Null));
                 if is_optional {
                     let non_null: Vec<_> = any_of
                         .iter()
-                        .filter(|s| !matches!(s, Schema::Null))
+                        .filter(|s| !matches!(&s.kind, SchemaKind::Null))
                         .collect();
                     if non_null.len() == 1 {
                         return format!("Option<{}>", schema_to_rust_type(non_null[0], refs));
@@ -176,7 +176,7 @@ fn schema_to_rust_type(schema: &Schema, refs: &HashMap<String, String>) -> Strin
             format!("({})", types.join(" | "))
         }
 
-        Schema::Literal { value } => match value {
+        SchemaKind::Literal { value } => match value {
             LiteralValue::String(s) => format!("&'static str /* \"{}\" */", s),
             LiteralValue::Number(n) => format!("{}", n),
             LiteralValue::Float(f) => format!("{}", f),
@@ -184,16 +184,34 @@ fn schema_to_rust_type(schema: &Schema, refs: &HashMap<String, String>) -> Strin
             LiteralValue::Null => "()".to_string(),
         },
 
-        Schema::Enum { .. } => "String".to_string(),
+        SchemaKind::Enum { .. } => "String".to_string(),
 
-        Schema::Ref { reference } => {
+        SchemaKind::Ref { reference } => {
             let name = reference
                 .strip_prefix("#/definitions/")
                 .unwrap_or(reference);
             refs.get(name).cloned().unwrap_or_else(|| name.to_string())
         }
 
-        Schema::Named { name, .. } => name.clone(),
+        SchemaKind::Named { name, .. } => name.clone(),
+
+        SchemaKind::Function {
+            parameters,
+            returns,
+        } => {
+            let params: Vec<_> = parameters
+                .iter()
+                .map(|s| schema_to_rust_type(s, refs))
+                .collect();
+            let ret = schema_to_rust_type(returns, refs);
+            format!("fn({}) -> {}", params.join(", "), ret)
+        }
+
+        SchemaKind::Void => "()".to_string(),
+        SchemaKind::Never => "!".to_string(),
+        SchemaKind::Any => "serde_json::Value".to_string(),
+        SchemaKind::Unknown => "serde_json::Value".to_string(),
+        SchemaKind::Undefined => "()".to_string(),
     }
 }
 
@@ -284,5 +302,18 @@ mod tests {
         let output = gen.generate_module(&registry).unwrap();
         assert!(output.contains("use serde::{Deserialize, Serialize}"));
         assert!(output.contains("pub struct Person"));
+    }
+
+    #[test]
+    fn test_generate_function_type() {
+        let gen = RustGenerator::new();
+        let schema = SchemaBuilder::function(
+            vec![SchemaBuilder::int64(), SchemaBuilder::string().build()],
+            SchemaBuilder::void(),
+        );
+
+        let output = gen.generate("Callback", &schema).unwrap();
+        assert!(output.contains("pub type Callback"));
+        assert!(output.contains("fn"));
     }
 }

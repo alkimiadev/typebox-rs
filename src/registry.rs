@@ -9,26 +9,26 @@
 //! # Examples
 //!
 //! ```
-/// use typebox::{SchemaBuilder, SchemaRegistry, Value, validate_with_registry};
-///
-/// let person_schema = SchemaBuilder::object()
-///     .field("name", SchemaBuilder::string().build())
-///     .field("age", SchemaBuilder::int64())
-///     .named("Person");
-///
-/// let mut registry = SchemaRegistry::new();
-/// registry.register("Person", person_schema);
-///
-/// let ref_schema = SchemaBuilder::r#ref("Person");
-/// let value = Value::object()
-///     .field("name", Value::string("Alice"))
-///     .field("age", Value::int64(30))
-///     .build();
-///
-/// assert!(validate_with_registry(&ref_schema, &value, &registry).is_ok());
-/// ```
+//! use typebox::{SchemaBuilder, SchemaRegistry, Value, validate_with_registry};
+//!
+//! let person_schema = SchemaBuilder::object()
+//!     .field("name", SchemaBuilder::string().build())
+//!     .field("age", SchemaBuilder::int64())
+//!     .named("Person");
+//!
+//! let mut registry = SchemaRegistry::new();
+//! registry.register("Person", person_schema);
+//!
+//! let ref_schema = SchemaBuilder::r#ref("Person");
+//! let value = Value::object()
+//!     .field("name", Value::string("Alice"))
+//!     .field("age", Value::int64(30))
+//!     .build();
+//!
+//! assert!(validate_with_registry(&ref_schema, &value, Some(&registry)).is_ok());
+//! ```
 use crate::error::RegistryError;
-use crate::schema::Schema;
+use crate::schema::{Schema, SchemaKind};
 use std::collections::{HashMap, HashSet};
 
 pub struct SchemaRegistry {
@@ -75,8 +75,8 @@ impl SchemaRegistry {
         schema: &'a Schema,
         visited: &mut HashSet<String>,
     ) -> Result<&'a Schema, RegistryError> {
-        match schema {
-            Schema::Ref { reference } => {
+        match &schema.kind {
+            SchemaKind::Ref { reference } => {
                 let name = reference
                     .strip_prefix("#/definitions/")
                     .unwrap_or(reference);
@@ -108,6 +108,7 @@ impl Default for SchemaRegistry {
 mod tests {
     use super::*;
     use crate::builder::SchemaBuilder;
+    use crate::schema::SchemaKind;
 
     #[test]
     fn test_register_and_get() {
@@ -131,7 +132,7 @@ mod tests {
         let ref_schema = SchemaBuilder::r#ref("Person");
         let resolved = registry.resolve(&ref_schema).unwrap();
 
-        assert!(matches!(resolved, Schema::Named { .. }));
+        assert!(matches!(resolved.kind, SchemaKind::Named { .. }));
     }
 
     #[test]
@@ -168,6 +169,6 @@ mod tests {
         let schema = SchemaBuilder::int64();
 
         let resolved = registry.resolve(&schema).unwrap();
-        assert!(matches!(resolved, Schema::Int64 { .. }));
+        assert!(matches!(resolved.kind, SchemaKind::Int64 { .. }));
     }
 }

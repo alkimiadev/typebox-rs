@@ -1,6 +1,6 @@
 use crate::error::ValidationError;
 use crate::registry::SchemaRegistry;
-use crate::schema::{LiteralValue, Schema};
+use crate::schema::{LiteralValue, Schema, SchemaKind};
 use crate::value::Value;
 
 pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
@@ -12,12 +12,12 @@ pub fn validate_with_registry(
     value: &Value,
     registry: Option<&SchemaRegistry>,
 ) -> Result<(), ValidationError> {
-    match (schema, value) {
-        (Schema::Null, Value::Null) => Ok(()),
+    match (&schema.kind, value) {
+        (SchemaKind::Null, Value::Null) => Ok(()),
 
-        (Schema::Bool, Value::Bool(_)) => Ok(()),
+        (SchemaKind::Bool, Value::Bool(_)) => Ok(()),
 
-        (Schema::Int8 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Int8 { minimum, maximum }, Value::Int64(n)) => {
             let n8 = i8::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
                 expected: "int8".to_string(),
                 actual: value_type(value),
@@ -30,7 +30,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::Int16 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Int16 { minimum, maximum }, Value::Int64(n)) => {
             let n16 = i16::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
                 expected: "int16".to_string(),
                 actual: value_type(value),
@@ -43,7 +43,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::Int32 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Int32 { minimum, maximum }, Value::Int64(n)) => {
             let n32 = i32::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
                 expected: "int32".to_string(),
                 actual: value_type(value),
@@ -56,7 +56,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::Int64 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::Int64 { minimum, maximum }, Value::Int64(n)) => {
             check_numeric_bounds(
                 *n as f64,
                 minimum.map(|m| m as f64),
@@ -65,7 +65,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::UInt8 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::UInt8 { minimum, maximum }, Value::Int64(n)) => {
             let n8 = u8::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
                 expected: "uint8".to_string(),
                 actual: value_type(value),
@@ -78,7 +78,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::UInt16 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::UInt16 { minimum, maximum }, Value::Int64(n)) => {
             let n16 = u16::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
                 expected: "uint16".to_string(),
                 actual: value_type(value),
@@ -91,7 +91,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::UInt32 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::UInt32 { minimum, maximum }, Value::Int64(n)) => {
             let n32 = u32::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
                 expected: "uint32".to_string(),
                 actual: value_type(value),
@@ -104,7 +104,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::UInt64 { minimum, maximum }, Value::Int64(n)) => {
+        (SchemaKind::UInt64 { minimum, maximum }, Value::Int64(n)) => {
             u64::try_from(*n).map_err(|_| ValidationError::TypeMismatch {
                 expected: "uint64".to_string(),
                 actual: value_type(value),
@@ -117,18 +117,18 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::Float32 { minimum, maximum }, Value::Float64(f)) => {
+        (SchemaKind::Float32 { minimum, maximum }, Value::Float64(f)) => {
             check_numeric_bounds(*f, minimum.map(f64::from), maximum.map(f64::from))?;
             Ok(())
         }
 
-        (Schema::Float64 { minimum, maximum }, Value::Float64(f)) => {
+        (SchemaKind::Float64 { minimum, maximum }, Value::Float64(f)) => {
             check_numeric_bounds(*f, *minimum, *maximum)?;
             Ok(())
         }
 
         (
-            Schema::String {
+            SchemaKind::String {
                 min_length,
                 max_length,
                 ..
@@ -154,11 +154,11 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::Bytes { .. }, Value::Bytes(_)) => Ok(()),
-        (Schema::Bytes { .. }, Value::UInt8Array(_)) => Ok(()),
+        (SchemaKind::Bytes { .. }, Value::Bytes(_)) => Ok(()),
+        (SchemaKind::Bytes { .. }, Value::UInt8Array(_)) => Ok(()),
 
         (
-            Schema::Array {
+            SchemaKind::Array {
                 items,
                 min_items,
                 max_items,
@@ -190,7 +190,7 @@ pub fn validate_with_registry(
         }
 
         (
-            Schema::Array {
+            SchemaKind::Array {
                 items: _,
                 min_items,
                 max_items,
@@ -219,7 +219,7 @@ pub fn validate_with_registry(
         }
 
         (
-            Schema::Object {
+            SchemaKind::Object {
                 properties,
                 required,
                 additional_properties,
@@ -251,7 +251,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::Tuple { items }, Value::Array(arr)) => {
+        (SchemaKind::Tuple { items }, Value::Array(arr)) => {
             if arr.len() != items.len() {
                 return Err(ValidationError::TypeMismatch {
                     expected: format!("tuple of {} elements", items.len()),
@@ -265,7 +265,7 @@ pub fn validate_with_registry(
             Ok(())
         }
 
-        (Schema::Union { any_of }, value) => {
+        (SchemaKind::Union { any_of }, value) => {
             for variant in any_of {
                 if validate_with_registry(variant, value, registry).is_ok() {
                     return Ok(());
@@ -274,7 +274,7 @@ pub fn validate_with_registry(
             Err(ValidationError::NoMatchingVariant)
         }
 
-        (Schema::Literal { value: lit }, val) => match (lit, val) {
+        (SchemaKind::Literal { value: lit }, val) => match (lit, val) {
             (LiteralValue::Null, Value::Null) => Ok(()),
             (LiteralValue::Boolean(b), Value::Bool(v)) if b == v => Ok(()),
             (LiteralValue::String(s), Value::String(v)) if s == v => Ok(()),
@@ -283,7 +283,7 @@ pub fn validate_with_registry(
             _ => Err(ValidationError::InvalidLiteral),
         },
 
-        (Schema::Enum { values }, Value::String(s)) => {
+        (SchemaKind::Enum { values }, Value::String(s)) => {
             if values.contains(s) {
                 Ok(())
             } else {
@@ -291,7 +291,7 @@ pub fn validate_with_registry(
             }
         }
 
-        (Schema::Ref { reference }, value) => {
+        (SchemaKind::Ref { reference }, value) => {
             let registry = registry.ok_or_else(|| ValidationError::TypeMismatch {
                 expected: format!("resolved ref {}", reference),
                 actual: "no registry".to_string(),
@@ -305,7 +305,24 @@ pub fn validate_with_registry(
             validate_with_registry(resolved, value, Some(registry))
         }
 
-        (Schema::Named { schema, .. }, value) => validate_with_registry(schema, value, registry),
+        (SchemaKind::Named { schema, .. }, value) => {
+            validate_with_registry(schema, value, registry)
+        }
+
+        (SchemaKind::Function { .. }, _) => Ok(()),
+
+        (SchemaKind::Void, Value::Null) => Ok(()),
+
+        (SchemaKind::Never, _) => Err(ValidationError::TypeMismatch {
+            expected: "never".to_string(),
+            actual: value_type(value),
+        }),
+
+        (SchemaKind::Any, _) => Ok(()),
+
+        (SchemaKind::Unknown, _) => Ok(()),
+
+        (SchemaKind::Undefined, Value::Null) => Ok(()),
 
         _ => Err(ValidationError::TypeMismatch {
             expected: schema.kind().to_string(),
@@ -382,6 +399,7 @@ fn value_type(value: &Value) -> String {
 mod tests {
     use super::*;
     use crate::builder::SchemaBuilder;
+    use crate::schema::SchemaKind;
 
     #[test]
     fn test_validate_primitives() {
@@ -481,10 +499,10 @@ mod tests {
 
     #[test]
     fn test_validate_numeric_bounds() {
-        let schema = Schema::Int64 {
+        let schema = Schema::new(SchemaKind::Int64 {
             minimum: Some(10),
             maximum: Some(100),
-        };
+        });
 
         assert!(validate(&schema, &Value::Int64(50)).is_ok());
         assert!(matches!(
@@ -514,10 +532,10 @@ mod tests {
 
     #[test]
     fn test_validate_int8_bounds() {
-        let schema = Schema::Int8 {
+        let schema = Schema::new(SchemaKind::Int8 {
             minimum: None,
             maximum: None,
-        };
+        });
 
         assert!(validate(&schema, &Value::Int64(0)).is_ok());
         assert!(validate(&schema, &Value::Int64(127)).is_ok());
@@ -534,10 +552,10 @@ mod tests {
 
     #[test]
     fn test_validate_uint8_bounds() {
-        let schema = Schema::UInt8 {
+        let schema = Schema::new(SchemaKind::UInt8 {
             minimum: None,
             maximum: None,
-        };
+        });
 
         assert!(validate(&schema, &Value::Int64(0)).is_ok());
         assert!(validate(&schema, &Value::Int64(255)).is_ok());
@@ -553,10 +571,10 @@ mod tests {
 
     #[test]
     fn test_validate_uint64_negative() {
-        let schema = Schema::UInt64 {
+        let schema = Schema::new(SchemaKind::UInt64 {
             minimum: None,
             maximum: None,
-        };
+        });
 
         assert!(validate(&schema, &Value::Int64(0)).is_ok());
         assert!(validate(&schema, &Value::Int64(i64::MAX)).is_ok());
@@ -598,5 +616,50 @@ mod tests {
         let value = Value::object().build();
 
         assert!(validate(&ref_schema, &value).is_err());
+    }
+
+    #[test]
+    fn test_validate_function() {
+        let schema = SchemaBuilder::function(
+            vec![SchemaBuilder::int64()],
+            SchemaBuilder::string().build(),
+        );
+        assert!(validate(&schema, &Value::Null).is_ok());
+    }
+
+    #[test]
+    fn test_validate_void() {
+        let schema = SchemaBuilder::void();
+        assert!(validate(&schema, &Value::Null).is_ok());
+        assert!(validate(&schema, &Value::Int64(42)).is_err());
+    }
+
+    #[test]
+    fn test_validate_never() {
+        let schema = SchemaBuilder::never();
+        assert!(validate(&schema, &Value::Null).is_err());
+        assert!(validate(&schema, &Value::Int64(42)).is_err());
+    }
+
+    #[test]
+    fn test_validate_any() {
+        let schema = SchemaBuilder::any();
+        assert!(validate(&schema, &Value::Null).is_ok());
+        assert!(validate(&schema, &Value::Int64(42)).is_ok());
+        assert!(validate(&schema, &Value::String("hello".to_string())).is_ok());
+    }
+
+    #[test]
+    fn test_validate_unknown() {
+        let schema = SchemaBuilder::unknown();
+        assert!(validate(&schema, &Value::Null).is_ok());
+        assert!(validate(&schema, &Value::Int64(42)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_undefined() {
+        let schema = SchemaBuilder::undefined();
+        assert!(validate(&schema, &Value::Null).is_ok());
+        assert!(validate(&schema, &Value::Int64(42)).is_err());
     }
 }

@@ -1,7 +1,7 @@
 //! Remove extraneous properties from values.
 
 use crate::error::CleanError;
-use crate::schema::Schema;
+use crate::schema::{Schema, SchemaKind};
 use crate::value::Value;
 use indexmap::IndexMap;
 
@@ -10,33 +10,33 @@ use indexmap::IndexMap;
 /// Object fields not in the schema are removed unless they match
 /// `additionalProperties`. Nested objects and arrays are cleaned recursively.
 pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
-    match (schema, value) {
-        (Schema::Null, Value::Null) => Ok(Value::Null),
-        (Schema::Bool, Value::Bool(b)) => Ok(Value::Bool(*b)),
+    match (&schema.kind, value) {
+        (SchemaKind::Null, Value::Null) => Ok(Value::Null),
+        (SchemaKind::Bool, Value::Bool(b)) => Ok(Value::Bool(*b)),
 
-        (Schema::Int8 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
-        (Schema::Int16 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
-        (Schema::Int32 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
-        (Schema::Int64 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
-        (Schema::UInt8 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
-        (Schema::UInt16 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
-        (Schema::UInt32 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
-        (Schema::UInt64 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
-        (Schema::Float32 { .. }, Value::Float64(f)) => Ok(Value::Float64(*f)),
-        (Schema::Float64 { .. }, Value::Float64(f)) => Ok(Value::Float64(*f)),
+        (SchemaKind::Int8 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
+        (SchemaKind::Int16 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
+        (SchemaKind::Int32 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
+        (SchemaKind::Int64 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
+        (SchemaKind::UInt8 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
+        (SchemaKind::UInt16 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
+        (SchemaKind::UInt32 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
+        (SchemaKind::UInt64 { .. }, Value::Int64(n)) => Ok(Value::Int64(*n)),
+        (SchemaKind::Float32 { .. }, Value::Float64(f)) => Ok(Value::Float64(*f)),
+        (SchemaKind::Float64 { .. }, Value::Float64(f)) => Ok(Value::Float64(*f)),
 
-        (Schema::String { .. }, Value::String(s)) => Ok(Value::String(s.clone())),
-        (Schema::Bytes { .. }, Value::Bytes(b)) => Ok(Value::Bytes(b.clone())),
-        (Schema::Bytes { .. }, Value::UInt8Array(b)) => Ok(Value::UInt8Array(b.clone())),
+        (SchemaKind::String { .. }, Value::String(s)) => Ok(Value::String(s.clone())),
+        (SchemaKind::Bytes { .. }, Value::Bytes(b)) => Ok(Value::Bytes(b.clone())),
+        (SchemaKind::Bytes { .. }, Value::UInt8Array(b)) => Ok(Value::UInt8Array(b.clone())),
 
-        (Schema::Array { items, .. }, Value::Array(arr)) => {
+        (SchemaKind::Array { items, .. }, Value::Array(arr)) => {
             let cleaned: Result<Vec<Value>, CleanError> =
                 arr.iter().map(|v| clean(items, v)).collect();
             Ok(Value::Array(cleaned?))
         }
 
         (
-            Schema::Object {
+            SchemaKind::Object {
                 properties,
                 additional_properties,
                 ..
@@ -58,7 +58,7 @@ pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
             Ok(Value::Object(result))
         }
 
-        (Schema::Tuple { items }, Value::Array(arr)) => {
+        (SchemaKind::Tuple { items }, Value::Array(arr)) => {
             let len = items.len().min(arr.len());
             let mut result = Vec::with_capacity(len);
             for i in 0..len {
@@ -67,7 +67,7 @@ pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
             Ok(Value::Array(result))
         }
 
-        (Schema::Union { any_of }, value) => {
+        (SchemaKind::Union { any_of }, value) => {
             for variant in any_of {
                 if super::check::check(variant, value) {
                     return clean(variant, value);
@@ -76,16 +76,23 @@ pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
             Ok(value.clone())
         }
 
-        (Schema::Literal { .. }, val) => Ok(val.clone()),
+        (SchemaKind::Literal { .. }, val) => Ok(val.clone()),
 
-        (Schema::Enum { .. }, Value::String(s)) => Ok(Value::String(s.clone())),
+        (SchemaKind::Enum { .. }, Value::String(s)) => Ok(Value::String(s.clone())),
 
-        (Schema::Ref { reference }, _) => Err(CleanError::CannotClean(format!(
+        (SchemaKind::Ref { reference }, _) => Err(CleanError::CannotClean(format!(
             "unresolved ref: {}",
             reference
         ))),
 
-        (Schema::Named { schema, .. }, value) => clean(schema, value),
+        (SchemaKind::Named { schema, .. }, value) => clean(schema, value),
+
+        (SchemaKind::Function { .. }, val) => Ok(val.clone()),
+        (SchemaKind::Void, val) => Ok(val.clone()),
+        (SchemaKind::Never, _) => Err(CleanError::CannotClean("never type".to_string())),
+        (SchemaKind::Any, val) => Ok(val.clone()),
+        (SchemaKind::Unknown, val) => Ok(val.clone()),
+        (SchemaKind::Undefined, val) => Ok(val.clone()),
 
         _ => Ok(value.clone()),
     }
@@ -95,13 +102,16 @@ pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
 mod tests {
     use super::*;
     use crate::builder::SchemaBuilder;
-    use crate::schema::LiteralValue;
+    use crate::schema::{LiteralValue, Schema};
 
     #[test]
     fn test_clean_primitives() {
-        assert_eq!(clean(&Schema::Null, &Value::Null).unwrap(), Value::Null);
         assert_eq!(
-            clean(&Schema::Bool, &Value::Bool(true)).unwrap(),
+            clean(&Schema::new(SchemaKind::Null), &Value::Null).unwrap(),
+            Value::Null
+        );
+        assert_eq!(
+            clean(&Schema::new(SchemaKind::Bool), &Value::Bool(true)).unwrap(),
             Value::Bool(true)
         );
         assert_eq!(
@@ -174,9 +184,9 @@ mod tests {
 
     #[test]
     fn test_clean_tuple_truncates() {
-        let schema = Schema::Tuple {
+        let schema = Schema::new(SchemaKind::Tuple {
             items: vec![SchemaBuilder::int64(), SchemaBuilder::string().build()],
-        };
+        });
 
         let value = Value::Array(vec![
             Value::Int64(1),
@@ -231,9 +241,9 @@ mod tests {
 
     #[test]
     fn test_clean_literal() {
-        let schema = Schema::Literal {
+        let schema = Schema::new(SchemaKind::Literal {
             value: LiteralValue::String("hello".to_string()),
-        };
+        });
 
         let value = Value::String("hello".to_string());
         let cleaned = clean(&schema, &value).unwrap();
@@ -242,9 +252,9 @@ mod tests {
 
     #[test]
     fn test_clean_enum() {
-        let schema = Schema::Enum {
+        let schema = Schema::new(SchemaKind::Enum {
             values: vec!["one".to_string(), "two".to_string()],
-        };
+        });
 
         let value = Value::String("one".to_string());
         let cleaned = clean(&schema, &value).unwrap();

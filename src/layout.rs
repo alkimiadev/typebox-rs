@@ -25,29 +25,29 @@ impl Layout {
 
 impl crate::schema::Schema {
     pub fn layout(&self) -> Layout {
-        use crate::schema::Schema;
+        use crate::schema::SchemaKind;
 
-        match self {
-            Schema::Null => Layout::new(0, 1),
-            Schema::Bool => Layout::new(1, 1),
-            Schema::Int8 { .. } | Schema::UInt8 { .. } => Layout::new(1, 1),
-            Schema::Int16 { .. } | Schema::UInt16 { .. } => Layout::new(2, 2),
-            Schema::Int32 { .. } | Schema::UInt32 { .. } | Schema::Float32 { .. } => {
+        match &self.kind {
+            SchemaKind::Null => Layout::new(0, 1),
+            SchemaKind::Bool => Layout::new(1, 1),
+            SchemaKind::Int8 { .. } | SchemaKind::UInt8 { .. } => Layout::new(1, 1),
+            SchemaKind::Int16 { .. } | SchemaKind::UInt16 { .. } => Layout::new(2, 2),
+            SchemaKind::Int32 { .. } | SchemaKind::UInt32 { .. } | SchemaKind::Float32 { .. } => {
                 Layout::new(4, 4)
             }
-            Schema::Int64 { .. } | Schema::UInt64 { .. } | Schema::Float64 { .. } => {
+            SchemaKind::Int64 { .. } | SchemaKind::UInt64 { .. } | SchemaKind::Float64 { .. } => {
                 Layout::new(8, 8)
             }
 
-            Schema::String { .. } => Layout::new(0, 8), // Variable size, pointer-aligned
-            Schema::Bytes { .. } => Layout::new(0, 8),  // Variable size, pointer-aligned
+            SchemaKind::String { .. } => Layout::new(0, 8),
+            SchemaKind::Bytes { .. } => Layout::new(0, 8),
 
-            Schema::Array { items, .. } => {
+            SchemaKind::Array { items, .. } => {
                 let item_layout = items.layout();
                 Layout::new(0, item_layout.align)
             }
 
-            Schema::Object {
+            SchemaKind::Object {
                 properties,
                 required,
                 ..
@@ -80,7 +80,7 @@ impl crate::schema::Schema {
                 Layout::with_offsets(offset, max_align, offsets)
             }
 
-            Schema::Tuple { items } => {
+            SchemaKind::Tuple { items } => {
                 let mut offset = 0;
                 let mut max_align = 1;
                 let mut offsets = vec![];
@@ -104,17 +104,24 @@ impl crate::schema::Schema {
                 Layout::with_offsets(offset, max_align, offsets)
             }
 
-            Schema::Union { any_of } => {
+            SchemaKind::Union { any_of } => {
                 let max_size = any_of.iter().map(|s| s.layout().size).max().unwrap_or(0);
                 let max_align = any_of.iter().map(|s| s.layout().align).max().unwrap_or(1);
                 Layout::new(max_size, max_align)
             }
 
-            Schema::Literal { .. } => Layout::new(0, 1),
-            Schema::Enum { .. } => Layout::new(1, 1),
+            SchemaKind::Literal { .. } => Layout::new(0, 1),
+            SchemaKind::Enum { .. } => Layout::new(1, 1),
 
-            Schema::Ref { .. } => Layout::new(0, 1),
-            Schema::Named { schema, .. } => schema.layout(),
+            SchemaKind::Ref { .. } => Layout::new(0, 1),
+            SchemaKind::Named { schema, .. } => schema.layout(),
+
+            SchemaKind::Function { .. } => Layout::new(0, 1),
+            SchemaKind::Void => Layout::new(0, 1),
+            SchemaKind::Never => Layout::new(0, 1),
+            SchemaKind::Any => Layout::new(0, 8),
+            SchemaKind::Unknown => Layout::new(0, 8),
+            SchemaKind::Undefined => Layout::new(0, 1),
         }
     }
 }
@@ -144,10 +151,6 @@ mod tests {
 
         let layout = schema.layout();
 
-        // a: offset 0
-        // b: offset 8 (aligned to 8)
-        // c: offset 16
-        // total: 24 (padded to 8)
         assert_eq!(layout.offsets, vec![0, 8, 16]);
         assert_eq!(layout.size, 24);
         assert_eq!(layout.align, 8);
@@ -163,12 +166,8 @@ mod tests {
 
         let layout = schema.layout();
 
-        // 0: int32 (4 bytes)
-        // 4: int16 (2 bytes) - no padding needed
-        // 6: int8 (1 byte)
-        // total: 7, aligned to 4
         assert_eq!(layout.offsets, vec![0, 4, 6]);
-        assert_eq!(layout.size, 8); // padded to alignment
+        assert_eq!(layout.size, 8);
         assert_eq!(layout.align, 4);
     }
 }

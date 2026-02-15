@@ -1,85 +1,85 @@
-use crate::schema::{LiteralValue, Schema, StringFormat};
+use crate::schema::{LiteralValue, Schema, SchemaKind, StringFormat};
 use indexmap::IndexMap;
 
 pub struct SchemaBuilder;
 
 impl SchemaBuilder {
     pub fn null() -> Schema {
-        Schema::Null
+        Schema::new(SchemaKind::Null)
     }
 
     pub fn bool() -> Schema {
-        Schema::Bool
+        Schema::new(SchemaKind::Bool)
     }
 
     pub fn int8() -> Schema {
-        Schema::Int8 {
+        Schema::new(SchemaKind::Int8 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn int16() -> Schema {
-        Schema::Int16 {
+        Schema::new(SchemaKind::Int16 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn int32() -> Schema {
-        Schema::Int32 {
+        Schema::new(SchemaKind::Int32 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn int64() -> Schema {
-        Schema::Int64 {
+        Schema::new(SchemaKind::Int64 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn uint8() -> Schema {
-        Schema::UInt8 {
+        Schema::new(SchemaKind::UInt8 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn uint16() -> Schema {
-        Schema::UInt16 {
+        Schema::new(SchemaKind::UInt16 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn uint32() -> Schema {
-        Schema::UInt32 {
+        Schema::new(SchemaKind::UInt32 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn uint64() -> Schema {
-        Schema::UInt64 {
+        Schema::new(SchemaKind::UInt64 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn float32() -> Schema {
-        Schema::Float32 {
+        Schema::new(SchemaKind::Float32 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn float64() -> Schema {
-        Schema::Float64 {
+        Schema::new(SchemaKind::Float64 {
             minimum: None,
             maximum: None,
-        }
+        })
     }
 
     pub fn string() -> StringBuilder {
@@ -87,10 +87,10 @@ impl SchemaBuilder {
     }
 
     pub fn bytes() -> Schema {
-        Schema::Bytes {
+        Schema::new(SchemaKind::Bytes {
             min_length: None,
             max_length: None,
-        }
+        })
     }
 
     pub fn array(items: Schema) -> ArrayBuilder {
@@ -102,42 +102,69 @@ impl SchemaBuilder {
     }
 
     pub fn tuple(items: Vec<Schema>) -> Schema {
-        Schema::Tuple { items }
+        Schema::new(SchemaKind::Tuple { items })
     }
 
     pub fn union(variants: Vec<Schema>) -> Schema {
-        Schema::Union { any_of: variants }
+        Schema::new(SchemaKind::Union { any_of: variants })
     }
 
     pub fn optional(schema: Schema) -> Schema {
-        Schema::Union {
-            any_of: vec![schema, Schema::Null],
-        }
+        Schema::new(SchemaKind::Union {
+            any_of: vec![schema, Schema::new(SchemaKind::Null)],
+        })
     }
 
     pub fn literal(value: impl Into<LiteralValue>) -> Schema {
-        Schema::Literal {
+        Schema::new(SchemaKind::Literal {
             value: value.into(),
-        }
+        })
     }
 
     pub fn enum_values(values: Vec<&str>) -> Schema {
-        Schema::Enum {
+        Schema::new(SchemaKind::Enum {
             values: values.iter().map(|s| s.to_string()).collect(),
-        }
+        })
     }
 
     pub fn r#ref(name: &str) -> Schema {
-        Schema::Ref {
+        Schema::new(SchemaKind::Ref {
             reference: format!("#/definitions/{}", name),
-        }
+        })
     }
 
     pub fn named(name: &str, schema: Schema) -> Schema {
-        Schema::Named {
+        Schema::new(SchemaKind::Named {
             name: name.to_string(),
             schema: Box::new(schema),
-        }
+        })
+    }
+
+    pub fn function(parameters: Vec<Schema>, returns: Schema) -> Schema {
+        Schema::new(SchemaKind::Function {
+            parameters,
+            returns: Box::new(returns),
+        })
+    }
+
+    pub fn void() -> Schema {
+        Schema::new(SchemaKind::Void)
+    }
+
+    pub fn never() -> Schema {
+        Schema::new(SchemaKind::Never)
+    }
+
+    pub fn any() -> Schema {
+        Schema::new(SchemaKind::Any)
+    }
+
+    pub fn unknown() -> Schema {
+        Schema::new(SchemaKind::Unknown)
+    }
+
+    pub fn undefined() -> Schema {
+        Schema::new(SchemaKind::Undefined)
     }
 }
 
@@ -215,12 +242,12 @@ impl StringBuilder {
     }
 
     pub fn build(self) -> Schema {
-        Schema::String {
+        Schema::new(SchemaKind::String {
             format: self.format,
             pattern: self.pattern,
             min_length: self.min_length,
             max_length: self.max_length,
-        }
+        })
     }
 }
 
@@ -263,12 +290,12 @@ impl ArrayBuilder {
     }
 
     pub fn build(self) -> Schema {
-        Schema::Array {
+        Schema::new(SchemaKind::Array {
             items: Box::new(self.items),
             min_items: self.min_items,
             max_items: self.max_items,
             unique_items: self.unique_items,
-        }
+        })
     }
 }
 
@@ -304,18 +331,18 @@ impl ObjectBuilder {
     }
 
     pub fn build(self) -> Schema {
-        Schema::Object {
+        Schema::new(SchemaKind::Object {
             properties: self.properties,
             required: self.required,
             additional_properties: self.additional_properties.map(Box::new),
-        }
+        })
     }
 
     pub fn named(self, name: &str) -> Schema {
-        Schema::Named {
+        Schema::new(SchemaKind::Named {
             name: name.to_string(),
             schema: Box::new(self.build()),
-        }
+        })
     }
 }
 
@@ -337,8 +364,8 @@ mod tests {
             .optional_field("email", SchemaBuilder::string().build())
             .build();
 
-        match schema {
-            Schema::Object {
+        match schema.kind {
+            SchemaKind::Object {
                 properties,
                 required,
                 ..
@@ -361,8 +388,8 @@ mod tests {
             .unique_items(true)
             .build();
 
-        match schema {
-            Schema::Array {
+        match schema.kind {
+            SchemaKind::Array {
                 min_items,
                 max_items,
                 unique_items,
@@ -380,11 +407,11 @@ mod tests {
     fn test_optional_type() {
         let schema = SchemaBuilder::optional(SchemaBuilder::string().build());
 
-        match schema {
-            Schema::Union { any_of } => {
+        match schema.kind {
+            SchemaKind::Union { any_of } => {
                 assert_eq!(any_of.len(), 2);
-                assert!(matches!(&any_of[0], Schema::String { .. }));
-                assert!(matches!(&any_of[1], Schema::Null));
+                assert!(matches!(&any_of[0].kind, SchemaKind::String { .. }));
+                assert!(matches!(&any_of[1].kind, SchemaKind::Null));
             }
             _ => panic!("Expected Union"),
         }
@@ -396,10 +423,10 @@ mod tests {
             .field("x", SchemaBuilder::int64())
             .named("Point");
 
-        match schema {
-            Schema::Named { name, schema } => {
+        match schema.kind {
+            SchemaKind::Named { name, schema } => {
                 assert_eq!(name, "Point");
-                assert!(matches!(*schema, Schema::Object { .. }));
+                assert!(matches!(schema.kind, SchemaKind::Object { .. }));
             }
             _ => panic!("Expected Named"),
         }
@@ -413,8 +440,8 @@ mod tests {
             .max_length(100)
             .build();
 
-        match schema {
-            Schema::String {
+        match schema.kind {
+            SchemaKind::String {
                 format,
                 min_length,
                 max_length,
@@ -426,5 +453,52 @@ mod tests {
             }
             _ => panic!("Expected String"),
         }
+    }
+
+    #[test]
+    fn test_function_builder() {
+        let schema = SchemaBuilder::function(
+            vec![SchemaBuilder::int64(), SchemaBuilder::string().build()],
+            SchemaBuilder::void(),
+        );
+
+        match schema.kind {
+            SchemaKind::Function {
+                parameters,
+                returns,
+            } => {
+                assert_eq!(parameters.len(), 2);
+                assert!(matches!(&returns.kind, SchemaKind::Void));
+            }
+            _ => panic!("Expected Function"),
+        }
+    }
+
+    #[test]
+    fn test_special_types() {
+        assert!(matches!(SchemaBuilder::void().kind, SchemaKind::Void));
+        assert!(matches!(SchemaBuilder::never().kind, SchemaKind::Never));
+        assert!(matches!(SchemaBuilder::any().kind, SchemaKind::Any));
+        assert!(matches!(SchemaBuilder::unknown().kind, SchemaKind::Unknown));
+        assert!(matches!(
+            SchemaBuilder::undefined().kind,
+            SchemaKind::Undefined
+        ));
+    }
+
+    #[test]
+    fn test_metadata_methods() {
+        let schema = SchemaBuilder::string()
+            .build()
+            .with_id("https://example.com/schemas/email")
+            .with_title("Email")
+            .with_description("An email address");
+
+        assert_eq!(
+            schema.id,
+            Some("https://example.com/schemas/email".to_string())
+        );
+        assert_eq!(schema.title, Some("Email".to_string()));
+        assert_eq!(schema.description, Some("An email address".to_string()));
     }
 }

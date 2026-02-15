@@ -50,7 +50,7 @@ pub use builder::SchemaBuilder;
 pub use error::{CastError, CleanError, CreateError, Error, PatchError};
 pub use layout::Layout;
 pub use registry::SchemaRegistry;
-pub use schema::{LiteralValue, Schema, StringFormat};
+pub use schema::{LiteralValue, Schema, SchemaKind, StringFormat};
 pub use validate::{validate, validate_with_registry};
 pub use value::Value;
 pub use value::{

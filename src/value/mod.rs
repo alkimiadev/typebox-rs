@@ -19,8 +19,9 @@ pub mod pointer;
 pub mod fake;
 
 use crate::error::ParseError;
-use crate::schema::{LiteralValue, Schema};
+use crate::schema::{LiteralValue, Schema, SchemaKind};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 pub use cast::cast;
@@ -41,7 +42,7 @@ pub use fake::{fake, fake_with_context, FakeContext};
 /// A dynamically-typed value with schema-aware operations.
 ///
 /// Supports JSON-compatible types plus typed arrays for binary/tensor data.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     /// Null value.
     Null,
@@ -183,10 +184,10 @@ impl Value {
     }
 
     pub fn from_json(json: serde_json::Value, schema: &Schema) -> Result<Self, ParseError> {
-        match (json, schema) {
-            (serde_json::Value::Null, Schema::Null) => Ok(Value::Null),
-            (serde_json::Value::Null, Schema::Union { any_of }) => {
-                if any_of.iter().any(|s| matches!(s, Schema::Null)) {
+        match (json, &schema.kind) {
+            (serde_json::Value::Null, SchemaKind::Null) => Ok(Value::Null),
+            (serde_json::Value::Null, SchemaKind::Union { any_of }) => {
+                if any_of.iter().any(|s| matches!(&s.kind, SchemaKind::Null)) {
                     Ok(Value::Null)
                 } else {
                     Err(ParseError::TypeMismatch {
@@ -195,23 +196,23 @@ impl Value {
                     })
                 }
             }
-            (serde_json::Value::Bool(b), Schema::Bool) => Ok(Value::Bool(b)),
-            (serde_json::Value::Number(n), Schema::Int64 { .. }) => n
+            (serde_json::Value::Bool(b), SchemaKind::Bool) => Ok(Value::Bool(b)),
+            (serde_json::Value::Number(n), SchemaKind::Int64 { .. }) => n
                 .as_i64()
                 .map(Value::Int64)
                 .ok_or_else(|| ParseError::TypeMismatch {
                     expected: "Int64".to_string(),
                     got: "Number".to_string(),
                 }),
-            (serde_json::Value::Number(n), Schema::Float64 { .. }) => n
+            (serde_json::Value::Number(n), SchemaKind::Float64 { .. }) => n
                 .as_f64()
                 .map(Value::Float64)
                 .ok_or_else(|| ParseError::TypeMismatch {
                     expected: "Float64".to_string(),
                     got: "Number".to_string(),
                 }),
-            (serde_json::Value::String(s), Schema::String { .. }) => Ok(Value::String(s)),
-            (serde_json::Value::Array(arr), Schema::Array { items, .. }) => {
+            (serde_json::Value::String(s), SchemaKind::String { .. }) => Ok(Value::String(s)),
+            (serde_json::Value::Array(arr), SchemaKind::Array { items, .. }) => {
                 let values: Result<Vec<Value>, ParseError> = arr
                     .into_iter()
                     .map(|v| Value::from_json(v, items))
@@ -220,7 +221,7 @@ impl Value {
             }
             (
                 serde_json::Value::Object(map),
-                Schema::Object {
+                SchemaKind::Object {
                     properties,
                     required,
                     ..
@@ -238,7 +239,7 @@ impl Value {
                 }
                 Ok(Value::Object(result))
             }
-            (serde_json::Value::Array(arr), Schema::Tuple { items }) => {
+            (serde_json::Value::Array(arr), SchemaKind::Tuple { items }) => {
                 if arr.len() != items.len() {
                     return Err(ParseError::InvalidLength {
                         expected: items.len(),
@@ -252,7 +253,7 @@ impl Value {
                     .collect();
                 Ok(Value::Array(values?))
             }
-            (value, Schema::Union { any_of }) => {
+            (value, SchemaKind::Union { any_of }) => {
                 for variant in any_of {
                     if let Ok(parsed) = Value::from_json(value.clone(), variant) {
                         return Ok(parsed);
@@ -260,7 +261,7 @@ impl Value {
                 }
                 Err(ParseError::NoMatchingVariant)
             }
-            (value, Schema::Literal { value: lit }) => {
+            (value, SchemaKind::Literal { value: lit }) => {
                 let matches = match (&value, lit) {
                     (serde_json::Value::Null, LiteralValue::Null) => true,
                     (serde_json::Value::Bool(b), LiteralValue::Boolean(lit_b)) => *b == *lit_b,
@@ -285,7 +286,7 @@ impl Value {
                     Err(ParseError::LiteralMismatch)
                 }
             }
-            (serde_json::Value::String(s), Schema::Enum { values }) => {
+            (serde_json::Value::String(s), SchemaKind::Enum { values }) => {
                 if values.contains(&s) {
                     Ok(Value::String(s))
                 } else {
@@ -295,8 +296,11 @@ impl Value {
                     })
                 }
             }
-            (value, schema) => Err(ParseError::TypeMismatch {
-                expected: schema.kind().to_string(),
+            (serde_json::Value::Null, SchemaKind::Void) => Ok(Value::Null),
+            (serde_json::Value::Null, SchemaKind::Undefined) => Ok(Value::Null),
+            (value, SchemaKind::Any) | (value, SchemaKind::Unknown) => Ok(value_to_untyped(value)),
+            (value, schema_kind) => Err(ParseError::TypeMismatch {
+                expected: schema_kind.kind_name().to_string(),
                 got: match value {
                     serde_json::Value::Null => "Null".to_string(),
                     serde_json::Value::Bool(_) => "Bool".to_string(),
@@ -389,6 +393,29 @@ impl Value {
                 Cow::Owned(bytes)
             }
             _ => Cow::Owned(vec![]),
+        }
+    }
+}
+
+fn value_to_untyped(value: serde_json::Value) -> Value {
+    match value {
+        serde_json::Value::Null => Value::Null,
+        serde_json::Value::Bool(b) => Value::Bool(b),
+        serde_json::Value::Number(n) => n
+            .as_i64()
+            .map(Value::Int64)
+            .or_else(|| n.as_f64().map(Value::Float64))
+            .unwrap_or(Value::Null),
+        serde_json::Value::String(s) => Value::String(s),
+        serde_json::Value::Array(arr) => {
+            Value::Array(arr.into_iter().map(value_to_untyped).collect())
+        }
+        serde_json::Value::Object(map) => {
+            let mut result = IndexMap::new();
+            for (k, v) in map {
+                result.insert(k, value_to_untyped(v));
+            }
+            Value::Object(result)
         }
     }
 }
