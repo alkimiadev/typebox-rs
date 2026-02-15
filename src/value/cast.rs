@@ -365,6 +365,13 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
         (SchemaKind::Unknown, val) => Ok(val.clone()),
         (SchemaKind::Undefined, _) => Ok(Value::Null),
         (SchemaKind::Recursive { schema }, value) => cast(schema, value),
+        (SchemaKind::Intersect { all_of }, value) => {
+            let mut result = value.clone();
+            for s in all_of {
+                result = cast(s, &result)?;
+            }
+            Ok(result)
+        }
     }
 }
 

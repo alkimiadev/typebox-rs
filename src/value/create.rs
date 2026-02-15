@@ -103,6 +103,32 @@ pub fn create(schema: &Schema) -> Result<Value, CreateError> {
         SchemaKind::Undefined => Ok(Value::Null),
 
         SchemaKind::Recursive { schema } => create(schema),
+
+        SchemaKind::Intersect { all_of } => {
+            let mut result = Value::Object(IndexMap::new());
+            for s in all_of {
+                if let SchemaKind::Object {
+                    properties,
+                    required,
+                    ..
+                } = &s.kind
+                {
+                    for field_name in required {
+                        if let Some(field_schema) = properties.get(field_name) {
+                            if let Value::Object(obj) = create(field_schema)? {
+                                if let Value::Object(ref mut res_obj) = result {
+                                    res_obj.insert(
+                                        field_name.clone(),
+                                        obj.get(field_name).cloned().unwrap_or(Value::Null),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(result)
+        }
     }
 }
 

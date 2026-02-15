@@ -209,6 +209,13 @@ pub enum SchemaKind {
     Recursive {
         schema: Box<Schema>,
     },
+
+    /// Intersection type - value must match all schemas.
+    ///
+    /// Equivalent to JSON Schema's `allOf` constraint.
+    Intersect {
+        all_of: Vec<Schema>,
+    },
 }
 
 /// String format constraints.
@@ -354,6 +361,7 @@ impl SchemaKind {
             SchemaKind::Unknown => "Unknown",
             SchemaKind::Undefined => "Undefined",
             SchemaKind::Recursive { .. } => "Recursive",
+            SchemaKind::Intersect { .. } => "Intersect",
         }
     }
 }
@@ -456,6 +464,15 @@ impl std::fmt::Display for SchemaKind {
             SchemaKind::Unknown => write!(f, "unknown"),
             SchemaKind::Undefined => write!(f, "undefined"),
             SchemaKind::Recursive { schema } => write!(f, "Recursive<{}>", schema),
+            SchemaKind::Intersect { all_of } => {
+                for (i, schema) in all_of.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " & ")?;
+                    }
+                    write!(f, "{}", schema)?;
+                }
+                Ok(())
+            }
         }
     }
 }

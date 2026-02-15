@@ -94,6 +94,13 @@ pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
         (SchemaKind::Unknown, val) => Ok(val.clone()),
         (SchemaKind::Undefined, val) => Ok(val.clone()),
         (SchemaKind::Recursive { schema }, value) => clean(schema, value),
+        (SchemaKind::Intersect { all_of }, value) => {
+            let mut result = value.clone();
+            for s in all_of {
+                result = clean(s, &result)?;
+            }
+            Ok(result)
+        }
 
         _ => Ok(value.clone()),
     }

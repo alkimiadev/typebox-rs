@@ -243,6 +243,30 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
         SchemaKind::Unknown => Ok(Value::Null),
         SchemaKind::Undefined => Ok(Value::Null),
         SchemaKind::Recursive { schema } => fake_with_context(schema, ctx),
+        SchemaKind::Intersect { all_of } => {
+            let mut result = IndexMap::new();
+            for s in all_of {
+                if let SchemaKind::Object {
+                    properties,
+                    required,
+                    ..
+                } = &s.kind
+                {
+                    let child_ctx = ctx.child();
+                    for field_name in required {
+                        if let Some(field_schema) = properties.get(field_name) {
+                            if !result.contains_key(field_name) {
+                                result.insert(
+                                    field_name.clone(),
+                                    fake_with_context(field_schema, &child_ctx)?,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(Value::Object(result))
+        }
     }
 }
 

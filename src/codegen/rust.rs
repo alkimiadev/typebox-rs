@@ -213,6 +213,13 @@ fn schema_to_rust_type(schema: &Schema, refs: &HashMap<String, String>) -> Strin
         SchemaKind::Unknown => "serde_json::Value".to_string(),
         SchemaKind::Undefined => "()".to_string(),
         SchemaKind::Recursive { schema } => schema_to_rust_type(schema, refs),
+        SchemaKind::Intersect { all_of } => {
+            let types: Vec<_> = all_of
+                .iter()
+                .map(|s| schema_to_rust_type(s, refs))
+                .collect();
+            types.join(" + ")
+        }
     }
 }
 

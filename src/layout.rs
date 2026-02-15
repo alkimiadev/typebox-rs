@@ -123,6 +123,11 @@ impl crate::schema::Schema {
             SchemaKind::Unknown => Layout::new(0, 8),
             SchemaKind::Undefined => Layout::new(0, 1),
             SchemaKind::Recursive { schema } => schema.layout(),
+            SchemaKind::Intersect { all_of } => {
+                let max_size = all_of.iter().map(|s| s.layout().size).max().unwrap_or(0);
+                let max_align = all_of.iter().map(|s| s.layout().align).max().unwrap_or(1);
+                Layout::new(max_size, max_align)
+            }
         }
     }
 }

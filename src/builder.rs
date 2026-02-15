@@ -180,6 +180,10 @@ impl SchemaBuilder {
         })
         .with_id(id)
     }
+
+    pub fn intersect(schemas: Vec<Schema>) -> Schema {
+        Schema::new(SchemaKind::Intersect { all_of: schemas })
+    }
 }
 
 impl From<&str> for LiteralValue {
@@ -530,5 +534,25 @@ mod tests {
 
         assert!(matches!(schema.kind, SchemaKind::Recursive { .. }));
         assert_eq!(schema.id, Some("JsonTree".to_string()));
+    }
+
+    #[test]
+    fn test_intersect_type() {
+        let node = SchemaBuilder::object()
+            .field("type", SchemaBuilder::string().build())
+            .build();
+
+        let with_value = SchemaBuilder::object()
+            .field("value", SchemaBuilder::any())
+            .build();
+
+        let literal = SchemaBuilder::intersect(vec![node, with_value]);
+
+        match literal.kind {
+            SchemaKind::Intersect { all_of } => {
+                assert_eq!(all_of.len(), 2);
+            }
+            _ => panic!("Expected Intersect"),
+        }
     }
 }

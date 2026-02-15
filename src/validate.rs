@@ -332,6 +332,13 @@ pub fn validate_with_registry(
             validate_with_registry(inner, value, Some(&temp_registry))
         }
 
+        (SchemaKind::Intersect { all_of }, value) => {
+            for s in all_of {
+                validate_with_registry(s, value, registry)?;
+            }
+            Ok(())
+        }
+
         _ => Err(ValidationError::TypeMismatch {
             expected: schema.kind().to_string(),
             actual: value_type(value),
@@ -693,5 +700,30 @@ mod tests {
             &Value::Array(vec![Value::Array(vec![Value::Int64(1)])])
         )
         .is_ok());
+    }
+
+    #[test]
+    fn test_validate_intersect() {
+        let node = SchemaBuilder::object()
+            .field("type", SchemaBuilder::string().build())
+            .additional_properties(Some(SchemaBuilder::any()))
+            .build();
+
+        let literal_extra = SchemaBuilder::object()
+            .field("value", SchemaBuilder::any())
+            .additional_properties(Some(SchemaBuilder::any()))
+            .build();
+
+        let literal = SchemaBuilder::intersect(vec![node, literal_extra]);
+
+        let value = Value::object()
+            .field("type", Value::string("text"))
+            .field("value", Value::Int64(42))
+            .build();
+
+        assert!(validate(&literal, &value).is_ok());
+
+        let missing_field = Value::object().field("type", Value::string("text")).build();
+        assert!(validate(&literal, &missing_field).is_err());
     }
 }
