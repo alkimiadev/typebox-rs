@@ -90,6 +90,12 @@ pub enum ValidationError {
     #[error("Duplicate item in array with uniqueItems constraint")]
     DuplicateItem,
 
+    #[error("String does not match pattern '{pattern}': '{value}'")]
+    PatternMismatch { pattern: String, value: String },
+
+    #[error("Invalid regex pattern: '{pattern}'")]
+    InvalidPattern { pattern: String },
+
     #[error("At path '{path}': {inner}")]
     AtPath {
         path: String,

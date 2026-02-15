@@ -150,9 +150,9 @@ fn validate_full(
         (
             SchemaKind::String {
                 format,
+                pattern,
                 min_length,
                 max_length,
-                ..
             },
             Value::String(s),
         ) => {
@@ -193,6 +193,25 @@ fn validate_full(
                                 value: s.clone(),
                             });
                         }
+                    }
+                }
+            }
+            #[cfg(feature = "pattern")]
+            if let Some(pattern_str) = pattern {
+                use regex::Regex;
+                match Regex::new(pattern_str) {
+                    Ok(re) => {
+                        if !re.is_match(s) {
+                            return Err(ValidationError::PatternMismatch {
+                                pattern: pattern_str.clone(),
+                                value: s.clone(),
+                            });
+                        }
+                    }
+                    Err(_) => {
+                        return Err(ValidationError::InvalidPattern {
+                            pattern: pattern_str.clone(),
+                        });
                     }
                 }
             }
@@ -813,6 +832,21 @@ mod tests {
         assert!(matches!(
             validate(&schema, &duplicate),
             Err(ValidationError::DuplicateItem)
+        ));
+    }
+
+    #[cfg(feature = "pattern")]
+    #[test]
+    fn test_validate_pattern() {
+        let schema = SchemaBuilder::string().pattern(r"^\d{3}-\d{4}$").build();
+
+        let valid = Value::String("123-4567".to_string());
+        let invalid = Value::String("abc-defg".to_string());
+
+        assert!(validate(&schema, &valid).is_ok());
+        assert!(matches!(
+            validate(&schema, &invalid),
+            Err(ValidationError::PatternMismatch { .. })
         ));
     }
 }
