@@ -37,6 +37,7 @@
 
 pub mod builder;
 pub mod error;
+pub mod format;
 pub mod layout;
 pub mod registry;
 pub mod schema;
@@ -48,10 +49,11 @@ pub mod codegen;
 
 pub use builder::SchemaBuilder;
 pub use error::{CastError, CleanError, CreateError, Error, PatchError};
+pub use format::{FormatRegistry, FormatValidator};
 pub use layout::Layout;
 pub use registry::SchemaRegistry;
 pub use schema::{LiteralValue, Schema, SchemaKind, StringFormat};
-pub use validate::{validate, validate_with_registry};
+pub use validate::{validate, validate_with_format, validate_with_registry};
 pub use value::Value;
 pub use value::{
     cast, check, check_with_errors, clean, clone, create, delta, diff_summary, equal, patch, Delta,

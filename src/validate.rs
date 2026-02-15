@@ -1,16 +1,35 @@
 use crate::error::ValidationError;
+use crate::format::FormatRegistry;
 use crate::registry::SchemaRegistry;
-use crate::schema::{LiteralValue, Schema, SchemaKind};
+use crate::schema::{LiteralValue, Schema, SchemaKind, StringFormat};
 use crate::value::Value;
 
 pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
-    validate_with_registry(schema, value, None)
+    validate_full(schema, value, None, None)
 }
 
 pub fn validate_with_registry(
     schema: &Schema,
     value: &Value,
     registry: Option<&SchemaRegistry>,
+) -> Result<(), ValidationError> {
+    validate_full(schema, value, registry, None)
+}
+
+pub fn validate_with_format(
+    schema: &Schema,
+    value: &Value,
+    registry: Option<&SchemaRegistry>,
+    formats: Option<&FormatRegistry>,
+) -> Result<(), ValidationError> {
+    validate_full(schema, value, registry, formats)
+}
+
+fn validate_full(
+    schema: &Schema,
+    value: &Value,
+    registry: Option<&SchemaRegistry>,
+    formats: Option<&FormatRegistry>,
 ) -> Result<(), ValidationError> {
     match (&schema.kind, value) {
         (SchemaKind::Null, Value::Null) => Ok(()),
@@ -129,6 +148,7 @@ pub fn validate_with_registry(
 
         (
             SchemaKind::String {
+                format,
                 min_length,
                 max_length,
                 ..
@@ -149,6 +169,30 @@ pub fn validate_with_registry(
                         max: *max,
                         actual: s.len(),
                     });
+                }
+            }
+            if let Some(fmt) = format {
+                let format_name = match fmt {
+                    StringFormat::Email => "email",
+                    StringFormat::Uuid => "uuid",
+                    StringFormat::Uri => "uri",
+                    StringFormat::DateTime => "date-time",
+                    StringFormat::Date => "date",
+                    StringFormat::Time => "time",
+                    StringFormat::Hostname => "hostname",
+                    StringFormat::Ipv4 => "ipv4",
+                    StringFormat::Ipv6 => "ipv6",
+                    StringFormat::Custom(name) => name.as_str(),
+                };
+                if let Some(fmt_registry) = formats {
+                    if let Some(result) = fmt_registry.validate(format_name, s) {
+                        if !result {
+                            return Err(ValidationError::InvalidFormat {
+                                format: format_name.to_string(),
+                                value: s.clone(),
+                            });
+                        }
+                    }
                 }
             }
             Ok(())
@@ -183,7 +227,7 @@ pub fn validate_with_registry(
                 }
             }
             for (i, item) in arr.iter().enumerate() {
-                validate_with_registry(items, item, registry)
+                validate_full(items, item, registry, formats)
                     .map_err(|e| e.with_path(i.to_string()))?;
             }
             Ok(())
@@ -236,10 +280,10 @@ pub fn validate_with_registry(
 
             for (name, val) in map {
                 if let Some(prop_schema) = properties.get(name) {
-                    validate_with_registry(prop_schema, val, registry)
+                    validate_full(prop_schema, val, registry, formats)
                         .map_err(|e| e.with_path(name))?;
                 } else if let Some(ref additional) = additional_properties {
-                    validate_with_registry(additional, val, registry)
+                    validate_full(additional, val, registry, formats)
                         .map_err(|e| e.with_path(name))?;
                 } else {
                     return Err(ValidationError::UnknownField {
@@ -259,7 +303,7 @@ pub fn validate_with_registry(
                 });
             }
             for (i, (item_schema, item_val)) in items.iter().zip(arr.iter()).enumerate() {
-                validate_with_registry(item_schema, item_val, registry)
+                validate_full(item_schema, item_val, registry, formats)
                     .map_err(|e| e.with_path(i.to_string()))?;
             }
             Ok(())
@@ -267,7 +311,7 @@ pub fn validate_with_registry(
 
         (SchemaKind::Union { any_of }, value) => {
             for variant in any_of {
-                if validate_with_registry(variant, value, registry).is_ok() {
+                if validate_full(variant, value, registry, formats).is_ok() {
                     return Ok(());
                 }
             }
@@ -302,11 +346,11 @@ pub fn validate_with_registry(
                     expected: format!("resolved ref {}", reference),
                     actual: "unresolved".to_string(),
                 })?;
-            validate_with_registry(resolved, value, Some(registry))
+            validate_full(resolved, value, Some(registry), formats)
         }
 
         (SchemaKind::Named { schema, .. }, value) => {
-            validate_with_registry(schema, value, registry)
+            validate_full(schema, value, registry, formats)
         }
 
         (SchemaKind::Function { .. }, _) => Ok(()),
@@ -329,12 +373,12 @@ pub fn validate_with_registry(
             if let Some(ref id) = schema.id {
                 temp_registry.register(id, (**inner).clone());
             }
-            validate_with_registry(inner, value, Some(&temp_registry))
+            validate_full(inner, value, Some(&temp_registry), formats)
         }
 
         (SchemaKind::Intersect { all_of }, value) => {
             for s in all_of {
-                validate_with_registry(s, value, registry)?;
+                validate_full(s, value, registry, formats)?;
             }
             Ok(())
         }
@@ -725,5 +769,24 @@ mod tests {
 
         let missing_field = Value::object().field("type", Value::string("text")).build();
         assert!(validate(&literal, &missing_field).is_err());
+    }
+
+    #[test]
+    fn test_validate_format() {
+        use crate::format::FormatRegistry;
+        use crate::schema::StringFormat;
+
+        let mut formats = FormatRegistry::new();
+        formats.register("email", |s| s.contains('@'));
+
+        let schema = SchemaBuilder::string().format(StringFormat::Email).build();
+
+        let valid = Value::String("test@example.com".to_string());
+        let invalid = Value::String("invalid-email".to_string());
+
+        assert!(validate_with_format(&schema, &valid, None, Some(&formats)).is_ok());
+        assert!(validate_with_format(&schema, &invalid, None, Some(&formats)).is_err());
+
+        assert!(validate(&schema, &invalid).is_ok());
     }
 }

@@ -84,6 +84,9 @@ pub enum ValidationError {
     #[error("Value not in enum: {0}")]
     NotInEnum(String),
 
+    #[error("Invalid format '{format}': value '{value}' does not match")]
+    InvalidFormat { format: String, value: String },
+
     #[error("At path '{path}': {inner}")]
     AtPath {
         path: String,
