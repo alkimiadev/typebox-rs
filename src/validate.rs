@@ -2,7 +2,8 @@ use crate::error::ValidationError;
 use crate::format::FormatRegistry;
 use crate::registry::SchemaRegistry;
 use crate::schema::{LiteralValue, Schema, SchemaKind, StringFormat};
-use crate::value::Value;
+use crate::value::{hash_fnv1a, Value};
+use std::collections::HashSet;
 
 pub fn validate(schema: &Schema, value: &Value) -> Result<(), ValidationError> {
     validate_full(schema, value, None, None)
@@ -206,7 +207,7 @@ fn validate_full(
                 items,
                 min_items,
                 max_items,
-                ..
+                unique_items,
             },
             Value::Array(arr),
         ) => {
@@ -224,6 +225,15 @@ fn validate_full(
                         max: *max,
                         actual: arr.len(),
                     });
+                }
+            }
+            if unique_items.unwrap_or(false) {
+                let mut seen = HashSet::new();
+                for item in arr {
+                    let hash = hash_fnv1a(item);
+                    if !seen.insert(hash) {
+                        return Err(ValidationError::DuplicateItem);
+                    }
                 }
             }
             for (i, item) in arr.iter().enumerate() {
@@ -788,5 +798,21 @@ mod tests {
         assert!(validate_with_format(&schema, &invalid, None, Some(&formats)).is_err());
 
         assert!(validate(&schema, &invalid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_unique_items() {
+        let schema = SchemaBuilder::array(SchemaBuilder::int64())
+            .unique_items(true)
+            .build();
+
+        let unique = Value::Array(vec![Value::Int64(1), Value::Int64(2), Value::Int64(3)]);
+        let duplicate = Value::Array(vec![Value::Int64(1), Value::Int64(2), Value::Int64(1)]);
+
+        assert!(validate(&schema, &unique).is_ok());
+        assert!(matches!(
+            validate(&schema, &duplicate),
+            Err(ValidationError::DuplicateItem)
+        ));
     }
 }

@@ -87,6 +87,9 @@ pub enum ValidationError {
     #[error("Invalid format '{format}': value '{value}' does not match")]
     InvalidFormat { format: String, value: String },
 
+    #[error("Duplicate item in array with uniqueItems constraint")]
+    DuplicateItem,
+
     #[error("At path '{path}': {inner}")]
     AtPath {
         path: String,
