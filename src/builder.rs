@@ -166,6 +166,20 @@ impl SchemaBuilder {
     pub fn undefined() -> Schema {
         Schema::new(SchemaKind::Undefined)
     }
+
+    pub fn recursive<F>(id: &str, callback: F) -> Schema
+    where
+        F: FnOnce(Schema) -> Schema,
+    {
+        let this_ref = Schema::new(SchemaKind::Ref {
+            reference: id.to_string(),
+        });
+        let inner = callback(this_ref);
+        Schema::new(SchemaKind::Recursive {
+            schema: Box::new(inner),
+        })
+        .with_id(id)
+    }
 }
 
 impl From<&str> for LiteralValue {
@@ -500,5 +514,21 @@ mod tests {
         );
         assert_eq!(schema.title, Some("Email".to_string()));
         assert_eq!(schema.description, Some("An email address".to_string()));
+    }
+
+    #[test]
+    fn test_recursive_type() {
+        let schema = SchemaBuilder::recursive("JsonTree", |this| {
+            SchemaBuilder::union(vec![
+                SchemaBuilder::null(),
+                SchemaBuilder::bool(),
+                SchemaBuilder::int64(),
+                SchemaBuilder::string().build(),
+                SchemaBuilder::array(this.clone()).build(),
+            ])
+        });
+
+        assert!(matches!(schema.kind, SchemaKind::Recursive { .. }));
+        assert_eq!(schema.id, Some("JsonTree".to_string()));
     }
 }

@@ -31,6 +31,7 @@ use crate::error::RegistryError;
 use crate::schema::{Schema, SchemaKind};
 use std::collections::{HashMap, HashSet};
 
+#[derive(Clone)]
 pub struct SchemaRegistry {
     schemas: HashMap<String, Schema>,
 }

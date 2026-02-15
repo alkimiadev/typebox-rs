@@ -364,6 +364,7 @@ pub fn cast(schema: &Schema, value: &Value) -> Result<Value, CastError> {
         (SchemaKind::Any, val) => Ok(val.clone()),
         (SchemaKind::Unknown, val) => Ok(val.clone()),
         (SchemaKind::Undefined, _) => Ok(Value::Null),
+        (SchemaKind::Recursive { schema }, value) => cast(schema, value),
     }
 }
 

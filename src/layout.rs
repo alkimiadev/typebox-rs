@@ -122,6 +122,7 @@ impl crate::schema::Schema {
             SchemaKind::Any => Layout::new(0, 8),
             SchemaKind::Unknown => Layout::new(0, 8),
             SchemaKind::Undefined => Layout::new(0, 1),
+            SchemaKind::Recursive { schema } => schema.layout(),
         }
     }
 }

@@ -242,6 +242,7 @@ pub fn fake_with_context(schema: &Schema, ctx: &FakeContext) -> Result<Value, Fa
         SchemaKind::Any => Ok(Value::Null),
         SchemaKind::Unknown => Ok(Value::Null),
         SchemaKind::Undefined => Ok(Value::Null),
+        SchemaKind::Recursive { schema } => fake_with_context(schema, ctx),
     }
 }
 

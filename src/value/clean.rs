@@ -93,6 +93,7 @@ pub fn clean(schema: &Schema, value: &Value) -> Result<Value, CleanError> {
         (SchemaKind::Any, val) => Ok(val.clone()),
         (SchemaKind::Unknown, val) => Ok(val.clone()),
         (SchemaKind::Undefined, val) => Ok(val.clone()),
+        (SchemaKind::Recursive { schema }, value) => clean(schema, value),
 
         _ => Ok(value.clone()),
     }

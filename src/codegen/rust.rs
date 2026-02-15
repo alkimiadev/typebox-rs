@@ -212,6 +212,7 @@ fn schema_to_rust_type(schema: &Schema, refs: &HashMap<String, String>) -> Strin
         SchemaKind::Any => "serde_json::Value".to_string(),
         SchemaKind::Unknown => "serde_json::Value".to_string(),
         SchemaKind::Undefined => "()".to_string(),
+        SchemaKind::Recursive { schema } => schema_to_rust_type(schema, refs),
     }
 }
 

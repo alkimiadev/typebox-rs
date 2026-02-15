@@ -324,6 +324,14 @@ pub fn validate_with_registry(
 
         (SchemaKind::Undefined, Value::Null) => Ok(()),
 
+        (SchemaKind::Recursive { schema: inner }, value) => {
+            let mut temp_registry = registry.cloned().unwrap_or_default();
+            if let Some(ref id) = schema.id {
+                temp_registry.register(id, (**inner).clone());
+            }
+            validate_with_registry(inner, value, Some(&temp_registry))
+        }
+
         _ => Err(ValidationError::TypeMismatch {
             expected: schema.kind().to_string(),
             actual: value_type(value),
@@ -661,5 +669,29 @@ mod tests {
         let schema = SchemaBuilder::undefined();
         assert!(validate(&schema, &Value::Null).is_ok());
         assert!(validate(&schema, &Value::Int64(42)).is_err());
+    }
+
+    #[test]
+    fn test_validate_recursive() {
+        let schema = SchemaBuilder::recursive("JsonTree", |this| {
+            SchemaBuilder::union(vec![
+                SchemaBuilder::null(),
+                SchemaBuilder::bool(),
+                SchemaBuilder::int64(),
+                SchemaBuilder::string().build(),
+                SchemaBuilder::array(this).build(),
+            ])
+        });
+
+        assert!(validate(&schema, &Value::Null).is_ok());
+        assert!(validate(&schema, &Value::Bool(true)).is_ok());
+        assert!(validate(&schema, &Value::Int64(42)).is_ok());
+        assert!(validate(&schema, &Value::String("hello".to_string())).is_ok());
+        assert!(validate(&schema, &Value::Array(vec![Value::Int64(1)])).is_ok());
+        assert!(validate(
+            &schema,
+            &Value::Array(vec![Value::Array(vec![Value::Int64(1)])])
+        )
+        .is_ok());
     }
 }

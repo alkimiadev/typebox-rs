@@ -101,6 +101,8 @@ pub fn create(schema: &Schema) -> Result<Value, CreateError> {
         SchemaKind::Unknown => Ok(Value::Null),
 
         SchemaKind::Undefined => Ok(Value::Null),
+
+        SchemaKind::Recursive { schema } => create(schema),
     }
 }
 

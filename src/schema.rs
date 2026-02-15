@@ -201,6 +201,14 @@ pub enum SchemaKind {
 
     /// Undefined type - for TypeScript optional unions.
     Undefined,
+
+    /// Recursive type wrapper for self-referencing schemas.
+    ///
+    /// The `schema` field contains a schema that can reference itself
+    /// via `Ref { reference: <id> }` where `<id>` matches this schema's `$id`.
+    Recursive {
+        schema: Box<Schema>,
+    },
 }
 
 /// String format constraints.
@@ -345,6 +353,7 @@ impl SchemaKind {
             SchemaKind::Any => "Any",
             SchemaKind::Unknown => "Unknown",
             SchemaKind::Undefined => "Undefined",
+            SchemaKind::Recursive { .. } => "Recursive",
         }
     }
 }
@@ -446,6 +455,7 @@ impl std::fmt::Display for SchemaKind {
             SchemaKind::Any => write!(f, "any"),
             SchemaKind::Unknown => write!(f, "unknown"),
             SchemaKind::Undefined => write!(f, "undefined"),
+            SchemaKind::Recursive { schema } => write!(f, "Recursive<{}>", schema),
         }
     }
 }
@@ -563,5 +573,25 @@ mod tests {
             format!("{}", Schema::new(SchemaKind::Undefined)),
             "undefined"
         );
+    }
+
+    #[test]
+    fn test_recursive_type() {
+        let schema = Schema::new(SchemaKind::Recursive {
+            schema: Box::new(Schema::new(SchemaKind::Union {
+                any_of: vec![
+                    Schema::new(SchemaKind::Null),
+                    Schema::new(SchemaKind::Int64 {
+                        minimum: None,
+                        maximum: None,
+                    }),
+                ],
+            })),
+        })
+        .with_id("RecursiveValue");
+
+        let json = serde_json::to_string(&schema).unwrap();
+        assert!(json.contains("\"kind\":\"recursive\""));
+        assert!(json.contains("\"$id\":\"RecursiveValue\""));
     }
 }

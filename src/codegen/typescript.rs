@@ -222,6 +222,7 @@ fn schema_to_ts_type(schema: &Schema, refs: &HashMap<String, String>) -> String 
         SchemaKind::Any => "any".to_string(),
         SchemaKind::Unknown => "unknown".to_string(),
         SchemaKind::Undefined => "undefined".to_string(),
+        SchemaKind::Recursive { schema } => schema_to_ts_type(schema, refs),
     }
 }
 
