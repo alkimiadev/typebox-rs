@@ -54,8 +54,6 @@ typebox = "0.1"
 | `codegen` | Generate Rust/TypeScript code from schemas |
 | `fake` | Generate random test data (`fake` + `rand` crates) |
 | `pattern` | Regex pattern validation for strings |
-| `safetensor` | SafeTensor file reading support |
-| `ffi` | C-compatible FFI types |
 
 Default: none (minimal by default)
 

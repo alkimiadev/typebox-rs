@@ -39,5 +39,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `codegen` - Generate Rust/TypeScript code from schemas
 - `fake` - Generate random test data
 - `pattern` - Regex pattern validation for strings
-- `safetensor` - SafeTensor file support (planned)
-- `ffi` - C-compatible FFI types (planned)

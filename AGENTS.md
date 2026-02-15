@@ -196,7 +196,7 @@ cargo fmt --check
 - Rust edition 2021
 - Use `thiserror` for error types
 - Handlebars templates in `src/codegen/templates/`
-- Feature flags: `codegen`, `fake`, `safetensor`, `ffi`
+- Feature flags: `codegen`, `fake`, `pattern`
 - Serde with `#[serde]` attributes for JSON compatibility with TypeBox
 
 ## Key Files

@@ -7,8 +7,8 @@ authors = ["alkimiadev"]
 description = "JSON Schema type construction with validation, code generation, and binary layout"
 repository = "https://github.com/alkimiadev/typebox-rs"
 documentation = "https://docs.rs/typebox"
-keywords = ["json-schema", "validation", "codegen", "typescript", "ffi"]
-categories = ["data-structures", "development-tools::ffi", "encoding"]
+keywords = ["json-schema", "validation", "codegen", "typescript"]
+categories = ["data-structures", "encoding"]
 readme = "README.md"
 
 [dependencies]
@@ -23,7 +23,6 @@ handlebars = { version = "5", optional = true }
 fake = { version = "4", optional = true }
 rand = { version = "0.9", optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
-memmap2 = { version = "0.9", optional = true }
 regex = { version = "1", optional = true }
 
 [dev-dependencies]
@@ -33,8 +32,6 @@ tempfile = "3"
 default = []
 codegen = ["handlebars"]
 fake = ["dep:fake", "dep:rand", "dep:uuid"]
-safetensor = ["memmap2"]
-ffi = []
 pattern = ["regex"]
 
 [[example]]

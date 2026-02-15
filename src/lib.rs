@@ -32,8 +32,7 @@
 //!
 //! - `codegen` - Generate Rust/TypeScript code from schemas
 //! - `fake` - Generate random test data (requires `fake` and `rand` crates)
-//! - `safetensor` - SafeTensor file support
-//! - `ffi` - C-compatible FFI types
+//! - `pattern` - Regex pattern validation for strings
 
 pub mod builder;
 pub mod error;
